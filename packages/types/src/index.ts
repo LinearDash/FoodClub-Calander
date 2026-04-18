@@ -30,10 +30,10 @@ export interface Event {
 export interface Task {
   id: string;
   eventId: string;
-  name: string;
-  type: string;
+  title: string;
+  description?: string;
   assignedTo: string;
-  dueDate: string;
+  dueDate?: string;
   completed: boolean;
 }
 
