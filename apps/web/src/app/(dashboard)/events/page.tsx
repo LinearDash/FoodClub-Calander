@@ -24,6 +24,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,24 +54,41 @@ export default function EventsPage() {
   );
 
   const handleSaveEvent = async () => {
-    if (!editingEvent.name?.trim()) return;
-
-    let res;
-    if (isEditing && editingEvent.id) {
-      res = await updateEvent(editingEvent.id, editingEvent);
-    } else {
-      res = await addEvent(editingEvent);
+    if (!editingEvent.name?.trim()) {
+      alert("Please enter an event name.");
+      return;
     }
 
-    if (res?.data) {
-      // Sync tasks
-      if (editingEvent.tasks) {
-        await updateEventTasks(res.data.id, editingEvent.tasks);
+    setSaving(true);
+    try {
+      let res;
+      if (isEditing && editingEvent.id) {
+        res = await updateEvent(editingEvent.id, editingEvent);
+      } else {
+        res = await addEvent(editingEvent);
       }
-      setEditingEvent({});
-      setIsModalOpen(false);
-      setIsEditing(false);
-      loadData();
+
+      if (res?.error) {
+        alert(`Failed to save event: ${res.error}`);
+        setSaving(false);
+        return;
+      }
+
+      if (res?.data) {
+        // Sync tasks
+        if (editingEvent.tasks) {
+          await updateEventTasks(res.data.id, editingEvent.tasks);
+        }
+        setEditingEvent({});
+        setIsModalOpen(false);
+        setIsEditing(false);
+        loadData();
+      }
+    } catch (err: any) {
+      console.error("Save error:", err);
+      alert(`An unexpected error occurred: ${err.message || "Unknown error"}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -299,9 +317,10 @@ export default function EventsPage() {
                   />
                 </div>
               ) : (
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
-                    Date
+                    Start Date
                   </label>
                   <input
                     type="date"
@@ -312,6 +331,20 @@ export default function EventsPage() {
                     className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                    End Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={editingEvent.endDate || ""}
+                    onChange={(e) =>
+                      setEditingEvent({ ...editingEvent, endDate: e.target.value })
+                    }
+                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                  />
+                </div>
+              </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
@@ -628,9 +661,10 @@ export default function EventsPage() {
             </button>
             <button
               onClick={handleSaveEvent}
-              className="bg-primary text-white px-6 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+              disabled={saving}
+              className={`bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {isEditing ? "Update Event" : "Create Event"}
+              {saving ? "Saving..." : (isEditing ? "Save Changes" : "Add Event")}
             </button>
           </div>
         </div>

@@ -16,7 +16,9 @@ export interface Event {
   contactDetails: string;
   priority: EventPriority;
   status: EventStatus;
+  endDate?: string; // ISO date string for range support
   followUpDate: string; // ISO date string or empty string
+
   applicationFormReleaseDateType?: "month" | "range"; // selection mode
   applicationFormReleaseDate?: string;    // YYYY-MM when type is "month"
   applicationFormReleaseDateEnd?: string; // YYYY-MM-DD end date when type is "range"

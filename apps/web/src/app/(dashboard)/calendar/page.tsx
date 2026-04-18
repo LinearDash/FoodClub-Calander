@@ -16,6 +16,7 @@ interface Profile {
 export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,22 +94,39 @@ export default function CalendarPage() {
   };
 
   const handleSave = async () => {
-    if (!editingEvent.name?.trim()) return;
-
-    let res;
-    if (editingEvent.id) {
-      res = await updateEvent(editingEvent.id, editingEvent);
-    } else {
-      res = await addEvent(editingEvent);
+    if (!editingEvent.name?.trim()) {
+      alert("Please enter an event name.");
+      return;
     }
 
-    if (res?.data) {
-      // Sync tasks
-      if (editingEvent.tasks) {
-        await updateEventTasks(res.data.id, editingEvent.tasks);
+    setSaving(true);
+    try {
+      let res;
+      if (editingEvent.id) {
+        res = await updateEvent(editingEvent.id, editingEvent);
+      } else {
+        res = await addEvent(editingEvent);
       }
-      setIsModalOpen(false);
-      loadEvents();
+
+      if (res?.error) {
+        alert(`Failed to save event: ${res.error}`);
+        setSaving(false);
+        return;
+      }
+
+      if (res?.data) {
+        // Sync tasks
+        if (editingEvent.tasks) {
+          await updateEventTasks(res.data.id, editingEvent.tasks);
+        }
+        setIsModalOpen(false);
+        loadEvents();
+      }
+    } catch (err: any) {
+      console.error("Save error:", err);
+      alert(`An unexpected error occurred: ${err.message || "Unknown error"}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -186,9 +204,11 @@ export default function CalendarPage() {
   const getDayEvents = (dayStr: string) =>
     events.filter((e) => {
       if (!e.date || e.isTBA) return false;
-      // Ensure we only compare the YYYY-MM-DD part
-      const eventDate = e.date.split('T')[0];
-      return eventDate === dayStr;
+      
+      const start = e.date.split('T')[0];
+      const end = e.endDate ? e.endDate.split('T')[0] : start;
+      
+      return dayStr >= start && dayStr <= end;
     });
 
   return (
@@ -488,18 +508,33 @@ export default function CalendarPage() {
                   />
                 </div>
               ) : (
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editingEvent.date || ""}
-                    onChange={(e) =>
-                      setEditingEvent({ ...editingEvent, date: e.target.value })
-                    }
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editingEvent.date || ""}
+                      onChange={(e) =>
+                        setEditingEvent({ ...editingEvent, date: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                      End Date (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={editingEvent.endDate || ""}
+                      onChange={(e) =>
+                        setEditingEvent({ ...editingEvent, endDate: e.target.value })
+                      }
+                      className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -818,9 +853,10 @@ export default function CalendarPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all"
+                  disabled={saving}
+                  className={`bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  Save Event
+                  {saving ? "Saving..." : "Save Event"}
                 </button>
               </div>
             </div>

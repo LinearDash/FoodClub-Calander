@@ -28,6 +28,7 @@ function mapEventFromDB(dbEvent: any): Event {
     contactDetails: dbEvent.contact_details || '',
     priority: dbEvent.priority as EventPriority,
     status: dbEvent.status as EventStatus,
+    endDate: dbEvent.end_date || '',
     followUpDate: dbEvent.follow_up_date || '',
     applicationFormReleaseDateType: dbEvent.application_form_release_date_type,
     applicationFormReleaseDate: dbEvent.application_form_release_date || '',
@@ -40,25 +41,28 @@ function mapEventFromDB(dbEvent: any): Event {
   }
 }
 
-// Helper to map Frontend camelCase to DB snake_case
-function mapEventToDB(event: Partial<Event>, userId: string) {
-  return {
-    name: event.name,
-    date: event.date,
-    location: event.location,
-    contact_name: event.contactName,
-    contact_details: event.contactDetails,
-    priority: event.priority,
-    status: event.status,
-    follow_up_date: event.followUpDate,
-    application_form_release_date_type: event.applicationFormReleaseDateType,
-    application_form_release_date: event.applicationFormReleaseDate,
-    application_form_release_date_end: event.applicationFormReleaseDateEnd,
-    notes: event.notes,
-    is_tba: event.isTBA ?? false,
-    created_by: userId,
-  }
+// Helper to map Frontend camelCase to DB snake_case for updates/inserts
+function mapEventToDB(event: Partial<Event>) {
+  const dbEvent: any = {}
+  
+  if (event.name !== undefined) dbEvent.name = event.name
+  if (event.date !== undefined) dbEvent.date = event.date === '' ? null : event.date
+  if (event.location !== undefined) dbEvent.location = event.location
+  if (event.contactName !== undefined) dbEvent.contact_name = event.contactName
+  if (event.contactDetails !== undefined) dbEvent.contact_details = event.contactDetails
+  if (event.priority !== undefined) dbEvent.priority = event.priority
+  if (event.status !== undefined) dbEvent.status = event.status
+  if (event.endDate !== undefined) dbEvent.end_date = event.endDate === '' ? null : event.endDate
+  if (event.followUpDate !== undefined) dbEvent.follow_up_date = event.followUpDate === '' ? null : event.followUpDate
+  if (event.applicationFormReleaseDateType !== undefined) dbEvent.application_form_release_date_type = event.applicationFormReleaseDateType
+  if (event.applicationFormReleaseDate !== undefined) dbEvent.application_form_release_date = event.applicationFormReleaseDate === '' ? null : event.applicationFormReleaseDate
+  if (event.applicationFormReleaseDateEnd !== undefined) dbEvent.application_form_release_date_end = event.applicationFormReleaseDateEnd === '' ? null : event.applicationFormReleaseDateEnd
+  if (event.notes !== undefined) dbEvent.notes = event.notes
+  if (event.isTBA !== undefined) dbEvent.is_tba = event.isTBA
+
+  return dbEvent
 }
+
 
 export async function getEvents() {
   const supabase = await createClient()
@@ -81,7 +85,7 @@ export async function addEvent(event: Partial<Event>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const dbEvent = mapEventToDB(event, user.id)
+  const dbEvent = { ...mapEventToDB(event), created_by: user.id }
   const { data, error } = await supabase
     .from('events')
     .insert(dbEvent)
@@ -89,7 +93,7 @@ export async function addEvent(event: Partial<Event>) {
     .single()
 
   if (error) {
-    console.error('Error adding event:', error)
+    console.error('❌ ADD_EVENT ERROR:', error.message, error.details, error.hint)
     return { error: error.message }
   }
 
@@ -120,7 +124,7 @@ export async function updateEvent(id: string, event: Partial<Event>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const dbEvent = mapEventToDB(event, user.id)
+  const dbEvent = mapEventToDB(event)
   const { data, error } = await supabase
     .from('events')
     .update(dbEvent)
@@ -129,7 +133,7 @@ export async function updateEvent(id: string, event: Partial<Event>) {
     .single()
 
   if (error) {
-    console.error('Error updating event:', error)
+    console.error('❌ UPDATE_EVENT ERROR:', error.message, error.details, error.hint)
     return { error: error.message }
   }
 

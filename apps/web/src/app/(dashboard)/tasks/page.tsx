@@ -56,9 +56,21 @@ export default function TasksPage() {
   }, [tasks, activeTab, currentUserId]);
 
   const toggleTask = async (id: string, currentStatus: boolean) => {
-    await updateTaskStatus(id, !currentStatus);
-    loadData();
+    // Optimistic Update
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !currentStatus } : t));
+    
+    try {
+      await updateTaskStatus(id, !currentStatus);
+      // Silently refresh in background without setting loading=true
+      const tasksData = await getGlobalTasks();
+      setTasks(tasksData);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      // Revert optimistic update
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: currentStatus } : t));
+    }
   };
+
 
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
