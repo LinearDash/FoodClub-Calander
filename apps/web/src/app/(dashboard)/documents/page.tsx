@@ -1,15 +1,21 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { getGlobalDocuments, saveDocumentRecord } from "../events/actions";
+import { createClient } from "@/utils/supabase/client";
+
+interface Doc {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  date: string;
+  url: string;
+  eventName?: string;
+}
 
 export default function DocumentsPage() {
-  const [docs, setDocs] = useState([
-    { id: 1, name: "Public Liability Insurance 2026.pdf", type: "PDF", size: "2.4 MB", date: "2026-01-10T00:00:00.000Z" },
-    { id: 2, name: "Menu Options Spring Carnival.docx", type: "DOCX", size: "1.1 MB", date: "2026-03-05T00:00:00.000Z" },
-    { id: 3, name: "Stall Setup Diagram.jpg", type: "IMAGE", size: "3.5 MB", date: "2026-02-20T00:00:00.000Z" },
-    { id: 4, name: "Supplier Contacts List.xlsx", type: "EXCEL", size: "800 KB", date: "2026-01-15T00:00:00.000Z" },
-    { id: 5, name: "Health & Safety Guidelines.pdf", type: "PDF", size: "4.2 MB", date: "2026-02-05T00:00:00.000Z" },
-    { id: 6, name: "Marketing Assets Zip.zip", type: "ZIP", size: "14.5 MB", date: "2026-03-25T00:00:00.000Z" }
-  ]);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,15 +41,56 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleFiles = (files: File[], forcedName?: string) => {
-    const newDocs = files.map((file, i) => ({
-      id: Date.now() + i,
-      name: forcedName || file.name,
-      type: file.name.split('.').pop()?.toUpperCase() || "FILE",
-      size: (file.size / 1024 / 1024).toFixed(1) + " MB",
-      date: new Date().toISOString()
-    }));
-    setDocs(prev => [...newDocs, ...prev]);
+  const loadData = async () => {
+    setLoading(true);
+    const data = await getGlobalDocuments();
+    setDocs(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const handleFiles = async (files: File[], forcedName?: string) => {
+    setLoading(true);
+    const supabase = createClient();
+
+    for (const file of files) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = forcedName || file.name;
+      const filePath = `global/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        alert(`Upload Failed: ${uploadError.message}. Make sure you have a public bucket named "documents" in Supabase.`);
+        setLoading(false);
+        return;
+      }
+
+      // Save to DB
+      const result = await saveDocumentRecord('', filePath, fileName, file.type, formatFileSize(file.size));
+      
+      if (result?.error) {
+        alert(`Database Save Failed: ${result.error}. The file was uploaded to storage, but the record wasn't created.`);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    alert("Upload successful!");
+    loadData();
   };
 
   return (
@@ -74,7 +121,11 @@ export default function DocumentsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2">
-        {docs.map(doc => (
+        {loading ? (
+          <div className="col-span-full py-20 text-center animate-pulse text-on-surface-variant font-medium">
+            Loading your business library...
+          </div>
+        ) : docs.map(doc => (
           <div key={doc.id} className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-[0_4px_20px_rgba(29,28,24,0.03)] hover:shadow-[0_8px_30px_rgba(29,28,24,0.08)] transition group flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between mb-4">
@@ -82,14 +133,21 @@ export default function DocumentsPage() {
                   {doc.type}
                 </div>
                 <button 
-                  onClick={() => alert(`Downloading ${doc.name}...`)}
+                  onClick={async () => {
+                    const supabase = createClient();
+                    const { data } = supabase.storage.from('documents').getPublicUrl(doc.url);
+                    window.open(data.publicUrl, '_blank');
+                  }}
                   className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition flex items-center gap-1 bg-primary/5"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  DL
+                  OPEN
                 </button>
               </div>
-              <h3 className="font-semibold text-on-surface mb-2 truncate" title={doc.name}>{doc.name}</h3>
+              <h3 className="font-semibold text-on-surface mb-1 truncate" title={doc.name}>{doc.name}</h3>
+              {doc.eventName && (
+                <p className="text-[10px] font-bold text-primary uppercase mb-2">Linked to: {doc.eventName}</p>
+              )}
             </div>
             <div className="flex items-center justify-between text-xs text-on-surface-variant font-medium pt-4 border-t border-surface-container-low mt-2">
               <span>{doc.size}</span>
@@ -97,7 +155,7 @@ export default function DocumentsPage() {
             </div>
           </div>
         ))}
-        {docs.length === 0 && (
+        {!loading && docs.length === 0 && (
            <div className="col-span-full py-12 text-center text-on-surface-variant border-2 border-dashed border-outline-variant/30 rounded-2xl">
              No documents uploaded yet. Drag and drop files here.
            </div>
@@ -138,7 +196,7 @@ export default function DocumentsPage() {
                 Cancel
               </button>
               <button 
-                disabled={!selectedFile}
+                disabled={!selectedFile || loading}
                 onClick={() => {
                   if (selectedFile) {
                     handleFiles([selectedFile], newDocName.trim() || undefined);
@@ -147,9 +205,15 @@ export default function DocumentsPage() {
                     setSelectedFile(null);
                   }
                 }}
-                className="bg-primary text-white px-6 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary text-white px-6 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Upload
+                {loading && (
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {loading ? 'Uploading...' : 'Upload'}
               </button>
             </div>
           </div>

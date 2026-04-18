@@ -2,86 +2,46 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Event, EventStatus, EventPriority } from "@foodclub/types";
-import { getPriorityLabel, formatDate } from "@foodclub/utils";
+import { getPriorityLabel, formatDate, getStatusColour } from "@foodclub/utils";
 import DateRangePicker from "@/components/DateRangePicker";
+import { getEvents, addEvent, updateEvent, deleteEvent, getProfiles, updateEventTasks, saveDocumentRecord } from "@/app/(dashboard)/events/actions";
+import { createClient } from "@/utils/supabase/client";
 
-const getStatusColour = (status: EventStatus): string => {
-  switch (status) {
-    case "not_applied": return "bg-slate-200 text-slate-700";
-    case "eoi_sent": return "!bg-amber-400 text-amber-900";
-    case "form_filled": return "!bg-blue-500 text-white";
-    case "unsuccessful": return "!bg-red-500 text-white";
-    case "confirmed": return "!bg-emerald-500 text-white";
-    default: return "bg-slate-200 text-slate-700";
-  }
-};
-
-// Dummy Data
-const initialEvents: Event[] = [
-  {
-    id: "1",
-    name: "Royal Show Activation",
-    date: "2026-04-18",
-    location: "Claremont Showgrounds",
-    contactName: "John Smith",
-    contactDetails: "john@example.com",
-    priority: "high",
-    status: "confirmed",
-    followUpDate: "2026-04-20",
-    notes: "",
-    isTBA: false,
-    assignedTo: "Sarah",
-    documents: [],
-    tasks: [],
-  },
-  {
-    id: "2",
-    name: "Fremantle Food Fest",
-    date: "2026-04-20",
-    location: "Esplanade",
-    contactName: "Jane Doe",
-    contactDetails: "jane@example.com",
-    priority: "medium",
-    status: "eoi_sent",
-    followUpDate: "2026-04-18",
-    notes: "",
-    isTBA: false,
-    assignedTo: "Mike",
-    documents: [],
-    tasks: [],
-  },
-  {
-    id: "3",
-    name: "TBA: City Night Market",
-    date: "2026-04",
-    location: "Perth City",
-    contactName: "Emma",
-    contactDetails: "",
-    priority: "low",
-    status: "not_applied",
-    followUpDate: "2026-04-25",
-    notes: "Awaiting confirmed dates from council",
-    isTBA: true,
-    assignedTo: "Sarah",
-    documents: [],
-    tasks: [],
-  },
-];
+interface Profile {
+  id: string;
+  full_name: string;
+  role: string;
+}
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState<Event[]>(initialEvents);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDate, setModalDate] = useState("");
   const [editingEvent, setEditingEvent] = useState<Partial<Event>>({});
 
-  // SSR-safe guaranteed initialization
   const [currentDate, setCurrentDate] = useState(
-    new Date("2026-04-18T12:00:00Z"),
+    new Date(),
   );
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const fetchProfiles = async () => {
+    const data = await getProfiles();
+    setProfiles(data);
+  };
+
+  const loadEvents = async () => {
+    const data = await getEvents();
+    setEvents(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
+    loadEvents();
+    fetchProfiles();
     // Client-side correction to true local time post-hydration
     setCurrentDate(new Date());
   }, []);
@@ -120,6 +80,7 @@ export default function CalendarPage() {
       date: dayStr,
       status: "not_applied",
       priority: "medium",
+      isTBA: false, // Ensure it shows up on the grid
     });
     setIsModalOpen(true);
   };
@@ -131,43 +92,104 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!editingEvent.name?.trim()) return;
+
+    let res;
     if (editingEvent.id) {
-      // update
-      setEvents(
-        events.map((ev) =>
-          ev.id === editingEvent.id
-            ? ({ ...ev, ...editingEvent } as Event)
-            : ev,
-        ),
-      );
+      res = await updateEvent(editingEvent.id, editingEvent);
     } else {
-      // create
-      const newEvent: Event = {
-        ...editingEvent,
-        id: Math.random().toString(),
-        name: editingEvent.name || "New Event",
-        isTBA: editingEvent.isTBA || false,
-        documents: [],
-        tasks: [],
-      } as Event;
-      setEvents([...events, newEvent]);
+      res = await addEvent(editingEvent);
     }
-    setIsModalOpen(false);
+
+    if (res?.data) {
+      // Sync tasks
+      if (editingEvent.tasks) {
+        await updateEventTasks(res.data.id, editingEvent.tasks);
+      }
+      setIsModalOpen(false);
+      loadEvents();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingEvent.id) return;
+
+    setIsUploading(true);
+    const supabase = createClient();
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${editingEvent.id}/${Math.random()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      setIsUploading(false);
+      return;
+    }
+
+    await saveDocumentRecord(editingEvent.id, filePath, file.name, file.type);
+    
+    // Refresh event data to show new document
+    const updatedEvents = await getEvents();
+    const currentEvent = updatedEvents.find(ev => ev.id === editingEvent.id);
+    if (currentEvent) setEditingEvent(currentEvent);
+    
+    setEvents(updatedEvents);
+    setIsUploading(false);
+  };
+
+  const addTask = () => {
+    const newTasks = [...(editingEvent.tasks || []), {
+      id: Math.random().toString(),
+      eventId: editingEvent.id || '',
+      title: '',
+      description: '',
+      assignedTo: '',
+      completed: false
+    }];
+    setEditingEvent({ ...editingEvent, tasks: newTasks });
+  };
+
+  const updateTask = (idx: number, updates: any) => {
+    const newTasks = [...(editingEvent.tasks || [])];
+    newTasks[idx] = { ...newTasks[idx], ...updates };
+    setEditingEvent({ ...editingEvent, tasks: newTasks });
+  };
+
+  const removeTask = (idx: number) => {
+    const newTasks = (editingEvent.tasks || []).filter((_, i) => i !== idx);
+    setEditingEvent({ ...editingEvent, tasks: newTasks });
+  };
+
+  const handleDelete = async () => {
+    if (editingEvent.id && window.confirm("Are you sure you want to delete this event?")) {
+      await deleteEvent(editingEvent.id);
+      setIsModalOpen(false);
+      loadEvents();
+    }
   };
 
   // Force tailwind to generate these classes by mentioning them here
   // bg-slate-200 text-slate-700 bg-amber-400 text-amber-900 bg-blue-500 text-white bg-red-500 text-white bg-emerald-500 text-white
 
 
-  // User requested all events for the month to appear in the table, not just TBA
+  // Show all events for the current month in the table (both Dated and TBA)
   const tableEvents = useMemo(
     () => events.filter((e) => e.date?.startsWith(currentMonthStr)),
     [events, currentMonthStr],
   );
 
   const getDayEvents = (dayStr: string) =>
-    events.filter((e) => e.date === dayStr && !e.isTBA);
+    events.filter((e) => {
+      if (!e.date || e.isTBA) return false;
+      // Ensure we only compare the YYYY-MM-DD part
+      const eventDate = e.date.split('T')[0];
+      return eventDate === dayStr;
+    });
 
   return (
     <div className="space-y-12 pb-12">
@@ -247,7 +269,12 @@ export default function CalendarPage() {
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)] bg-surface">
+          <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)] bg-surface relative">
+            {loading && (
+              <div className="absolute inset-0 bg-surface/50 backdrop-blur-[1px] z-10 flex items-center justify-center font-medium text-on-surface-variant">
+                Loading...
+              </div>
+            )}
             {prevMonthBlanks.map((day) => (
               <div
                 key={`prev-${day}`}
@@ -282,19 +309,19 @@ export default function CalendarPage() {
                       <div
                         key={ev.id}
                         onClick={(e) => handleEventClick(e, ev)}
-                        className={`text-xs px-2 py-1 rounded shadow-sm border border-black/5 flex items-center gap-1 ${getStatusColour(ev.status)}`}
+                        className={`text-[10px] leading-tight px-2 py-1.5 rounded-lg shadow-sm border border-black/5 flex items-center gap-1.5 mb-1 transition-transform hover:scale-[1.02] active:scale-[0.98] ${getStatusColour(ev.status)}`}
                       >
                         <span
-                          className={`w-2 h-2 rounded-full flex-shrink-0
+                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0
                           ${
                             ev.priority === "high"
-                              ? "bg-[#DC2626]"
+                              ? "bg-white border border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]"
                               : ev.priority === "medium"
-                                ? "border border-[#F97316]"
-                                : "bg-[#10B981]"
+                                ? "bg-white/80 border border-white/10"
+                                : "bg-white/40 border border-white/5"
                           }`}
                         />
-                        <span className="truncate">{ev.name}</span>
+                        <span className="truncate flex-1">{ev.name}</span>
                       </div>
                     ))}
                   </div>
@@ -323,7 +350,7 @@ export default function CalendarPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
-            TBA Events
+            Monthly Events
             <span className="text-sm font-bold bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-lg border border-outline-variant/30">
               {tableEvents.length}
             </span>
@@ -654,10 +681,105 @@ export default function CalendarPage() {
                   onChange={(e) =>
                     setEditingEvent({ ...editingEvent, notes: e.target.value })
                   }
-                  rows={3}
-                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface resize-none shadow-sm"
+                  rows={2}
+                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface resize-none shadow-sm h-20"
                   placeholder="Additional context..."
                 />
+              </div>
+
+              <div className="border-t border-outline-variant/15 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-semibold uppercase text-on-surface-variant">
+                    Tasks & Checklists
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addTask}
+                    className="text-xs font-bold text-primary hover:text-primary-container"
+                  >
+                    + Add Task
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                  {(editingEvent.tasks || []).length === 0 && (
+                    <div className="text-sm text-on-surface-variant/50 italic py-2">
+                      No tasks added yet.
+                    </div>
+                  )}
+                  {(editingEvent.tasks || []).map((task, idx) => (
+                    <div key={idx} className="group bg-surface-container-low rounded-xl p-3 border border-outline-variant/10">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => updateTask(idx, { completed: e.target.checked })}
+                          className="mt-1 w-4 h-4 text-primary rounded border-outline-variant/30 focus:ring-primary"
+                        />
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Task title..."
+                            value={task.title}
+                            onChange={(e) => updateTask(idx, { title: e.target.value })}
+                            className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none"
+                          />
+                          <textarea
+                            placeholder="Description..."
+                            value={task.description}
+                            onChange={(e) => updateTask(idx, { description: e.target.value })}
+                            className="w-full bg-transparent text-xs text-on-surface-variant placeholder:text-on-surface-variant/30 focus:outline-none resize-none"
+                            rows={1}
+                          />
+                          <div className="flex items-center gap-3">
+                            <select
+                              value={task.assignedTo || ""}
+                              onChange={(e) => updateTask(idx, { assignedTo: e.target.value })}
+                              className="text-[10px] font-bold uppercase bg-surface border border-outline-variant/20 rounded-lg px-2 py-1 text-on-surface-variant"
+                            >
+                              <option value="">Unassigned</option>
+                              {profiles.map(p => (
+                                <option key={p.id} value={p.id}>{p.full_name}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeTask(idx)}
+                              className="text-[10px] font-bold uppercase text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  Attachment {isUploading && <span className="text-primary animate-pulse ml-2 font-bold">(Uploading...)</span>}
+                </label>
+                {!editingEvent.id ? (
+                  <p className="text-[10px] text-on-surface-variant italic mb-2">Save the event first to upload attachments.</p>
+                ) : (
+                  <input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    className="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 disabled:opacity-50"
+                  />
+                )}
+                {editingEvent.documents && (editingEvent.documents as string[]).length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {(editingEvent.documents as string[]).map((doc, idx) => (
+                      <div key={idx} className="text-xs text-primary font-medium flex items-center gap-1">
+                        <span>📄</span> {doc.split('/').pop()}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -678,19 +800,29 @@ export default function CalendarPage() {
               </label>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/15">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all"
-              >
-                Save Event
-              </button>
+            <div className={`flex items-center gap-3 pt-4 border-t border-outline-variant/15 ${editingEvent.id ? "justify-between" : "justify-end"}`}>
+              {editingEvent.id && (
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 font-medium text-red-500 hover:bg-red-50 transition rounded-xl"
+                >
+                  Delete Event
+                </button>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all"
+                >
+                  Save Event
+                </button>
+              </div>
             </div>
           </div>
         </div>

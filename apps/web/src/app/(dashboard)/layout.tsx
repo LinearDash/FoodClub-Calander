@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { signOut } from "@/app/auth/actions";
 import React from "react";
 import { usePathname } from "next/navigation";
 
@@ -31,9 +32,14 @@ export default function DashboardLayout({
             <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary-container font-bold">
               FC
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-semibold text-on-surface">Coordinator</p>
-              <Link href="/login" className="text-xs text-on-surface-variant hover:text-primary">Logout</Link>
+              <button 
+                onClick={async () => await signOut()}
+                className="text-xs text-on-surface-variant hover:text-primary transition-colors text-left"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>

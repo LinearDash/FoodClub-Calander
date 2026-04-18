@@ -1,20 +1,22 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
-type Task = { id: number; title: string; description?: string; status: string; due: string; type: "my_tasks" | "assigned"; assignee?: string };
+import { getGlobalTasks, getProfiles, updateTaskStatus, addStandaloneTask } from "../events/actions";
+import { Task } from "@foodclub/types";
+import { createClient } from "@/utils/supabase/client";
 
-const initialTasks: Task[] = [
-  { id: 1, title: "Review EOI for Fremantle Festival", description: "Read through the initial proposition sent via email.", status: "pending", due: "2026-04-10T00:00:00Z", type: "my_tasks" },
-  { id: 2, title: "Finalize Perth Royal Show marquee size", description: "Need to measure the allocated spot and compare with 3x3m and 6x3m quotes.", status: "in_progress", due: "2026-04-15T00:00:00Z", type: "my_tasks" },
-  { id: 3, title: "Update menu for Spring Carnival", description: "Remove hot soups.", status: "completed", due: "2026-03-20T00:00:00Z", type: "my_tasks" },
-  { id: 4, title: "Send invoice to City Night Market", description: "", status: "pending", due: "2026-04-12T00:00:00Z", type: "assigned", assignee: "Sarah" },
-  { id: 5, title: "Gather permit docs", description: "", status: "completed", due: "2026-04-01T00:00:00Z", type: "assigned", assignee: "Mike" },
-  { id: 6, title: "Call supplier about napkins", description: "Ask for backorder ETA.", status: "pending", due: "2026-04-14T00:00:00Z", type: "assigned", assignee: "John" }
-];
+interface Profile {
+  id: string;
+  full_name: string;
+  role: string;
+}
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [activeTab, setActiveTab] = useState<"assigned" | "my_tasks">("my_tasks");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"assigned" | "my_tasks" | "all">("my_tasks");
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,28 +24,57 @@ export default function TasksPage() {
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
 
-  const displayTasks = tasks.filter(t => t.type === activeTab);
-
-  const toggleTask = (id: number) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: t.status === "completed" ? "pending" : "completed" } : t));
+  const loadData = async () => {
+    setLoading(true);
+    const [tasksData, profilesData] = await Promise.all([
+      getGlobalTasks(),
+      getProfiles()
+    ]);
+    
+    // Get current user to handle "My Tasks" filtering
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    setTasks(tasksData);
+    setProfiles(profilesData);
+    setCurrentUserId(user?.id || null);
+    setLoading(false);
   };
 
-  const handleAddTask = () => {
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const displayTasks = useMemo(() => {
+    if (!currentUserId) return [];
+    if (activeTab === "all") return tasks;
+    if (activeTab === "my_tasks") {
+      return tasks.filter(t => t.assignedTo === currentUserId);
+    } else {
+      return tasks.filter(t => t.assignedTo !== currentUserId);
+    }
+  }, [tasks, activeTab, currentUserId]);
+
+  const toggleTask = async (id: string, currentStatus: boolean) => {
+    await updateTaskStatus(id, !currentStatus);
+    loadData();
+  };
+
+  const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
-    const newTask: Task = {
-      id: Date.now(),
+    
+    await addStandaloneTask({
       title: newTaskTitle,
       description: newTaskDescription,
-      status: "pending",
-      due: new Date().toISOString(),
-      type: activeTab,
-      assignee: newTaskAssignee || (activeTab === "assigned" ? "Unassigned" : "Self")
-    };
-    setTasks([newTask, ...tasks]);
+      assignedTo: newTaskAssignee || (currentUserId as string),
+      dueDate: new Date().toISOString(),
+    });
+
     setNewTaskTitle("");
     setNewTaskDescription("");
     setNewTaskAssignee("");
     setIsModalOpen(false);
+    loadData();
   };
 
   return (
@@ -51,7 +82,10 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-4xl font-bold text-on-surface">Tasks</h1>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setNewTaskAssignee(currentUserId || "");
+            setIsModalOpen(true);
+          }}
           className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
         >
           + New Task
@@ -69,32 +103,40 @@ export default function TasksPage() {
           onClick={() => setActiveTab("assigned")}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${activeTab === "assigned" ? "bg-surface shadow text-on-surface" : "text-on-surface-variant hover:text-on-surface"}`}
         >
-          Assigned Tasks
+          Team Tasks
+        </button>
+        <button 
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${activeTab === "all" ? "bg-surface shadow text-on-surface" : "text-on-surface-variant hover:text-on-surface"}`}
+        >
+          All Tasks
         </button>
       </div>
 
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden p-2">
-        {displayTasks.length === 0 ? (
-          <div className="p-8 text-center text-on-surface-variant">No tasks found.</div>
+        {loading ? (
+          <div className="p-12 text-center text-on-surface-variant animate-pulse font-medium">Loading tasks...</div>
+        ) : displayTasks.length === 0 ? (
+          <div className="p-12 text-center text-on-surface-variant font-medium">No tasks found.</div>
         ) : (
           <ul className="divide-y divide-surface-container">
             {displayTasks.map(task => (
-              <li key={task.id} className="p-4 hover:bg-surface-container-low rounded-xl transition flex items-center justify-between group cursor-pointer" onClick={() => toggleTask(task.id)}>
+              <li key={task.id} className="p-4 hover:bg-surface-container-low rounded-xl transition flex items-center justify-between group cursor-pointer" onClick={() => toggleTask(task.id as string, !!task.completed)}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${task.status === "completed" ? "bg-primary border-primary text-white" : "border-outline-variant/60 bg-surface"}`}>
-                    {task.status === "completed" && (
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${task.completed ? "bg-primary border-primary text-white" : "border-outline-variant/60 bg-surface"}`}>
+                    {task.completed && (
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     )}
                   </div>
                   <div>
-                    <p className={`font-semibold text-on-surface transition-all ${task.status === "completed" ? "line-through text-on-surface-variant" : ""}`}>{task.title}</p>
+                    <p className={`font-semibold text-on-surface transition-all ${task.completed ? "line-through text-on-surface-variant" : ""}`}>{task.title}</p>
                     {task.description && <p className="text-sm text-on-surface-variant mt-1 line-clamp-1 pr-4">{task.description}</p>}
-                    <p className="text-xs text-on-surface-variant/70 mt-1 font-medium">Due: {new Date(task.due).toLocaleDateString()}</p>
+                    <p className="text-xs text-on-surface-variant/70 mt-1 font-medium">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
-                {(task.assignee) && (
+                {task.assignedTo && (
                   <div className="text-xs font-semibold px-3 py-1 bg-primary-container text-on-primary-container rounded-lg shrink-0">
-                    {task.assignee}
+                    {profiles.find(p => p.id === task.assignedTo)?.full_name || 'Assigned'}
                   </div>
                 )}
               </li>
@@ -131,14 +173,19 @@ export default function TasksPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">Assignee</label>
-                <input 
-                  type="text" 
+                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">Assign to Team Member</label>
+                <select 
                   value={newTaskAssignee} 
                   onChange={(e) => setNewTaskAssignee(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm" 
-                  placeholder="e.g., Sarah (Optional)"
-                />
+                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                >
+                  <option value="">Select teammate...</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.id === currentUserId ? `${p.full_name} (You)` : p.full_name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/15">
