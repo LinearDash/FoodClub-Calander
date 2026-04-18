@@ -20,8 +20,9 @@ export default function CalendarPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalDate, setModalDate] = useState("");
+  const [modalMode, setModalMode] = useState<"preview" | "edit">("edit");
   const [editingEvent, setEditingEvent] = useState<Partial<Event>>({});
+  const [expandedTaskIndexes, setExpandedTaskIndexes] = useState<Record<number, boolean>>({});
 
   const [currentDate, setCurrentDate] = useState(
     new Date(),
@@ -76,7 +77,8 @@ export default function CalendarPage() {
 
   // Handlers
   const handleDayClick = (dayStr: string) => {
-    setModalDate(dayStr);
+    setModalMode("edit");
+    setExpandedTaskIndexes({});
     setEditingEvent({
       date: dayStr,
       status: "not_applied",
@@ -88,8 +90,9 @@ export default function CalendarPage() {
 
   const handleEventClick = (e: React.MouseEvent, event: Event) => {
     e.stopPropagation();
+    setModalMode("preview");
+    setExpandedTaskIndexes({});
     setEditingEvent(event);
-    setModalDate(event.date);
     setIsModalOpen(true);
   };
 
@@ -170,6 +173,7 @@ export default function CalendarPage() {
       completed: false
     }];
     setEditingEvent({ ...editingEvent, tasks: newTasks });
+    setExpandedTaskIndexes((prev) => ({ ...prev, [newTasks.length - 1]: true }));
   };
 
   const updateTask = (idx: number, updates: any) => {
@@ -181,6 +185,60 @@ export default function CalendarPage() {
   const removeTask = (idx: number) => {
     const newTasks = (editingEvent.tasks || []).filter((_, i) => i !== idx);
     setEditingEvent({ ...editingEvent, tasks: newTasks });
+    setExpandedTaskIndexes({});
+  };
+
+  const toggleTaskExpansion = (idx: number) => {
+    setExpandedTaskIndexes((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const parseISODate = (value?: string) => {
+    if (!value) return null;
+    const iso = value.split("T")[0];
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const renderMiniEventCalendar = () => {
+    const start = parseISODate(editingEvent.date);
+    if (!start) return null;
+    const end = parseISODate(editingEvent.endDate) || start;
+    const monthStart = new Date(start.getFullYear(), start.getMonth(), 1);
+    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    const lead = (monthStart.getDay() + 6) % 7;
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < lead; i++) cells.push(null);
+    for (let day = 1; day <= monthEnd.getDate(); day++) {
+      cells.push(new Date(start.getFullYear(), start.getMonth(), day));
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    return (
+      <div className="rounded-xl border border-outline-variant/20 p-3 bg-surface">
+        <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">
+          {monthStart.toLocaleDateString("en-AU", { month: "long", year: "numeric" })}
+        </p>
+        <div className="grid grid-cols-7 gap-1 text-[10px] text-on-surface-variant mb-1">
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, idx) => <div key={`${d}-${idx}`} className="text-center">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((cell, idx) => {
+            if (!cell) return <div key={idx} className="h-6" />;
+            const inRange = cell >= start && cell <= end;
+            const isStart = cell.toDateString() === start.toDateString();
+            const isEnd = cell.toDateString() === end.toDateString();
+            return (
+              <div
+                key={idx}
+                className={`h-6 text-[11px] rounded text-center leading-6 ${inRange ? "bg-primary/20 text-on-surface font-semibold" : "text-on-surface-variant"} ${isStart || isEnd ? "ring-1 ring-primary" : ""}`}
+              >
+                {cell.getDate()}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const handleDelete = async () => {
@@ -197,7 +255,10 @@ export default function CalendarPage() {
 
   // Show all events for the current month in the table (both Dated and TBA)
   const tableEvents = useMemo(
-    () => events.filter((e) => e.date?.startsWith(currentMonthStr)),
+    () =>
+      events
+        .filter((e) => e.date?.startsWith(currentMonthStr))
+        .sort((a, b) => (a.date || "").localeCompare(b.date || "")),
     [events, currentMonthStr],
   );
 
@@ -264,6 +325,8 @@ export default function CalendarPage() {
           </div>
           <button
             onClick={() => {
+              setModalMode("edit");
+              setExpandedTaskIndexes({});
               setEditingEvent({
                 status: "not_applied",
                 priority: "medium",
@@ -377,6 +440,8 @@ export default function CalendarPage() {
           </h2>
           <button
             onClick={() => {
+              setModalMode("edit");
+              setExpandedTaskIndexes({});
               setEditingEvent({
                 status: "not_applied",
                 priority: "medium",
@@ -462,7 +527,7 @@ export default function CalendarPage() {
         </div>
       </section>
 
-      {/* Edit Modal Popup */}
+      {/* Event Modal Popup */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -470,6 +535,109 @@ export default function CalendarPage() {
             onClick={() => setIsModalOpen(false)}
           />
           <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+            {modalMode === "preview" ? (
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${getStatusColour((editingEvent.status || "not_applied") as EventStatus)}`}>
+                        {(editingEvent.status || "not_applied").replace("_", " ")}
+                      </span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        editingEvent.priority === "high"
+                          ? "bg-[#DC2626]"
+                          : editingEvent.priority === "medium"
+                            ? "border border-[#F97316]"
+                            : "bg-[#10B981]"
+                      }`} />
+                    </div>
+                    <h3 className="font-display text-3xl font-bold text-on-surface">{editingEvent.name || "Untitled event"}</h3>
+                    <p className="text-on-surface-variant mt-1">{editingEvent.location || "No location added"}</p>
+                  </div>
+                  <button
+                    onClick={() => setModalMode("edit")}
+                    className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {renderMiniEventCalendar()}
+                  <div className="rounded-xl bg-surface-container-low p-3">
+                    <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Date</p>
+                    <p className="font-medium text-on-surface">
+                      {editingEvent.isTBA ? (editingEvent.date?.substring(0, 7) || "TBA") : (formatDate(editingEvent.date || "") || "-")}
+                    </p>
+                  </div>
+                  {editingEvent.followUpDate && (
+                    <div className="rounded-xl bg-surface-container-low p-3 text-sm">
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Follow-up</p>
+                      <p className="font-medium text-on-surface">{formatDate(editingEvent.followUpDate)}</p>
+                    </div>
+                  )}
+                  {(editingEvent.contactName || editingEvent.contactDetails) && (
+                    <div className="rounded-xl bg-surface-container-low p-3 text-sm">
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Contact</p>
+                      <p className="font-medium text-on-surface">
+                        {editingEvent.contactName || editingEvent.contactDetails}
+                        {editingEvent.contactName && editingEvent.contactDetails ? ` (${editingEvent.contactDetails})` : ""}
+                      </p>
+                    </div>
+                  )}
+                  {editingEvent.notes && (
+                    <div>
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Notes</p>
+                      <div className="rounded-xl bg-surface-container-low p-3 text-sm text-on-surface">
+                        {editingEvent.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Attachments</p>
+                  {(editingEvent.documents || []).length === 0 ? (
+                    <p className="text-sm text-on-surface-variant">No attachments.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {(editingEvent.documents || []).map((doc, idx) => (
+                        <div key={idx} className="text-sm text-primary font-medium">- {doc.split("/").pop()}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Tasks</p>
+                  {(editingEvent.tasks || []).length === 0 ? (
+                    <p className="text-sm text-on-surface-variant">No tasks added.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(editingEvent.tasks || []).map((task, idx) => (
+                        <div key={idx} className="rounded-xl bg-surface-container-low p-3 flex items-center gap-3">
+                          <input type="checkbox" checked={task.completed} readOnly className="w-4 h-4 rounded border-outline-variant/30" />
+                          <div>
+                            <p className="text-sm font-semibold text-on-surface">{task.title || "Untitled task"}</p>
+                            {task.description && <p className="text-xs text-on-surface-variant">{task.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end border-t border-outline-variant/15 pt-4">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             <h3 className="font-display text-2xl font-bold text-on-surface">
               {editingEvent.id ? "Edit Event" : "New Event"}{" "}
               {editingEvent.isTBA ? "(TBA)" : ""}
@@ -758,14 +926,14 @@ export default function CalendarPage() {
                             onChange={(e) => updateTask(idx, { title: e.target.value })}
                             className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none"
                           />
-                          <textarea
-                            placeholder="Description..."
-                            value={task.description}
-                            onChange={(e) => updateTask(idx, { description: e.target.value })}
-                            className="w-full bg-transparent text-xs text-on-surface-variant placeholder:text-on-surface-variant/30 focus:outline-none resize-none"
-                            rows={1}
-                          />
                           <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleTaskExpansion(idx)}
+                              className="text-[10px] font-bold uppercase text-primary hover:text-primary-container"
+                            >
+                              {expandedTaskIndexes[idx] ? "Hide Comments" : "Add Comments"}
+                            </button>
                             <select
                               value={task.assignedTo || ""}
                               onChange={(e) => updateTask(idx, { assignedTo: e.target.value })}
@@ -784,6 +952,15 @@ export default function CalendarPage() {
                               Remove
                             </button>
                           </div>
+                          {expandedTaskIndexes[idx] && (
+                            <textarea
+                              placeholder="Comments..."
+                              value={task.description || ""}
+                              onChange={(e) => updateTask(idx, { description: e.target.value })}
+                              className="w-full bg-surface text-xs text-on-surface rounded-lg border border-outline-variant/20 p-2 placeholder:text-on-surface-variant/40 focus:outline-none"
+                              rows={3}
+                            />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -860,6 +1037,8 @@ export default function CalendarPage() {
                 </button>
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}

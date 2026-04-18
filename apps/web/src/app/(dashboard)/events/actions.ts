@@ -42,21 +42,26 @@ function mapEventFromDB(dbEvent: any): Event {
 }
 
 // Helper to map Frontend camelCase to DB snake_case for updates/inserts
+function normalizeDBDate(value: string | null | undefined) {
+  if (!value) return value
+  return /^\d{4}-\d{2}$/.test(value) ? `${value}-01` : value
+}
+
 function mapEventToDB(event: Partial<Event>) {
   const dbEvent: any = {}
   
   if (event.name !== undefined) dbEvent.name = event.name
-  if (event.date !== undefined) dbEvent.date = event.date === '' ? null : event.date
+  if (event.date !== undefined) dbEvent.date = event.date === '' ? null : normalizeDBDate(event.date)
   if (event.location !== undefined) dbEvent.location = event.location
   if (event.contactName !== undefined) dbEvent.contact_name = event.contactName
   if (event.contactDetails !== undefined) dbEvent.contact_details = event.contactDetails
   if (event.priority !== undefined) dbEvent.priority = event.priority
   if (event.status !== undefined) dbEvent.status = event.status
-  if (event.endDate !== undefined) dbEvent.end_date = event.endDate === '' ? null : event.endDate
-  if (event.followUpDate !== undefined) dbEvent.follow_up_date = event.followUpDate === '' ? null : event.followUpDate
+  if (event.endDate !== undefined) dbEvent.end_date = event.endDate === '' ? null : normalizeDBDate(event.endDate)
+  if (event.followUpDate !== undefined) dbEvent.follow_up_date = event.followUpDate === '' ? null : normalizeDBDate(event.followUpDate)
   if (event.applicationFormReleaseDateType !== undefined) dbEvent.application_form_release_date_type = event.applicationFormReleaseDateType
-  if (event.applicationFormReleaseDate !== undefined) dbEvent.application_form_release_date = event.applicationFormReleaseDate === '' ? null : event.applicationFormReleaseDate
-  if (event.applicationFormReleaseDateEnd !== undefined) dbEvent.application_form_release_date_end = event.applicationFormReleaseDateEnd === '' ? null : event.applicationFormReleaseDateEnd
+  if (event.applicationFormReleaseDate !== undefined) dbEvent.application_form_release_date = event.applicationFormReleaseDate === '' ? null : normalizeDBDate(event.applicationFormReleaseDate)
+  if (event.applicationFormReleaseDateEnd !== undefined) dbEvent.application_form_release_date_end = event.applicationFormReleaseDateEnd === '' ? null : normalizeDBDate(event.applicationFormReleaseDateEnd)
   if (event.notes !== undefined) dbEvent.notes = event.notes
   if (event.isTBA !== undefined) dbEvent.is_tba = event.isTBA
 

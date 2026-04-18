@@ -1,12 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Event, EventStatus } from "@foodclub/types";
-import { getPriorityLabel, formatDate, getStatusColour } from "@foodclub/utils";
+import { Event, EventStatus, EventPriority } from "@foodclub/types";
+import { formatDate, getStatusColour } from "@foodclub/utils";
 import DateRangePicker from "@/components/DateRangePicker";
 import {
   getEvents,
   addEvent,
-  deleteEvent,
   updateEvent,
   saveDocumentRecord,
   getProfiles,
@@ -28,8 +27,9 @@ export default function EventsPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"preview" | "edit">("edit");
   const [editingEvent, setEditingEvent] = useState<Partial<Event>>({});
-  const [isEditing, setIsEditing] = useState(false);
+  const [expandedTaskIndexes, setExpandedTaskIndexes] = useState<Record<number, boolean>>({});
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -62,7 +62,7 @@ export default function EventsPage() {
     setSaving(true);
     try {
       let res;
-      if (isEditing && editingEvent.id) {
+      if (editingEvent.id) {
         res = await updateEvent(editingEvent.id, editingEvent);
       } else {
         res = await addEvent(editingEvent);
@@ -81,7 +81,6 @@ export default function EventsPage() {
         }
         setEditingEvent({});
         setIsModalOpen(false);
-        setIsEditing(false);
         loadData();
       }
     } catch (err: any) {
@@ -135,6 +134,7 @@ export default function EventsPage() {
       },
     ];
     setEditingEvent({ ...editingEvent, tasks: newTasks });
+    setExpandedTaskIndexes((prev) => ({ ...prev, [newTasks.length - 1]: true }));
   };
 
   const updateTask = (idx: number, updates: any) => {
@@ -146,13 +146,60 @@ export default function EventsPage() {
   const removeTask = (idx: number) => {
     const newTasks = (editingEvent.tasks || []).filter((_, i) => i !== idx);
     setEditingEvent({ ...editingEvent, tasks: newTasks });
+    setExpandedTaskIndexes({});
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      await deleteEvent(id);
-      loadData();
+  const toggleTaskExpansion = (idx: number) => {
+    setExpandedTaskIndexes((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const parseISODate = (value?: string) => {
+    if (!value) return null;
+    const iso = value.split("T")[0];
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const renderMiniEventCalendar = () => {
+    const start = parseISODate(editingEvent.date);
+    if (!start) return null;
+    const end = parseISODate(editingEvent.endDate) || start;
+    const monthStart = new Date(start.getFullYear(), start.getMonth(), 1);
+    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    const lead = (monthStart.getDay() + 6) % 7;
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < lead; i++) cells.push(null);
+    for (let day = 1; day <= monthEnd.getDate(); day++) {
+      cells.push(new Date(start.getFullYear(), start.getMonth(), day));
     }
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    return (
+      <div className="rounded-xl border border-outline-variant/20 p-3 bg-surface">
+        <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">
+          {monthStart.toLocaleDateString("en-AU", { month: "long", year: "numeric" })}
+        </p>
+        <div className="grid grid-cols-7 gap-1 text-[10px] text-on-surface-variant mb-1">
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, idx) => <div key={`${d}-${idx}`} className="text-center">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((cell, idx) => {
+            if (!cell) return <div key={idx} className="h-6" />;
+            const inRange = cell >= start && cell <= end;
+            const isStart = cell.toDateString() === start.toDateString();
+            const isEnd = cell.toDateString() === end.toDateString();
+            return (
+              <div
+                key={idx}
+                className={`h-6 text-[11px] rounded text-center leading-6 ${inRange ? "bg-primary/20 text-on-surface font-semibold" : "text-on-surface-variant"} ${isStart || isEnd ? "ring-1 ring-primary" : ""}`}
+              >
+                {cell.getDate()}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -168,12 +215,13 @@ export default function EventsPage() {
         </div>
         <button
           onClick={() => {
+            setModalMode("edit");
+            setExpandedTaskIndexes({});
             setEditingEvent({
               status: "not_applied",
               priority: "medium",
               isTBA: false,
             });
-            setIsEditing(false);
             setIsModalOpen(true);
           }}
           className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
@@ -199,14 +247,13 @@ export default function EventsPage() {
               <th className="font-medium px-6 py-4">Event Name</th>
               <th className="font-medium px-6 py-4">Date</th>
               <th className="font-medium px-6 py-4">Status</th>
-              <th className="font-medium px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-container text-sm">
             {loading ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={3}
                   className="px-6 py-12 text-center text-on-surface-variant font-medium"
                 >
                   Loading events...
@@ -219,7 +266,8 @@ export default function EventsPage() {
                   className="hover:bg-primary-fixed/30 cursor-pointer transition-colors text-on-surface"
                   onClick={() => {
                     setEditingEvent(ev);
-                    setIsEditing(true);
+                    setModalMode("preview");
+                    setExpandedTaskIndexes({});
                     setIsModalOpen(true);
                   }}
                 >
@@ -242,25 +290,13 @@ export default function EventsPage() {
                       {ev.status.replace("_", " ")}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(ev.id, ev.name);
-                      }}
-                      className="p-2 text-on-surface-variant hover:text-red-500 transition-colors"
-                      title="Delete Event"
-                    >
-                      <span className="text-xl">🗑️</span>
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
             {!loading && filteredEvents.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={3}
                   className="px-6 py-8 text-center text-on-surface-variant"
                 >
                   No events found.
@@ -277,9 +313,112 @@ export default function EventsPage() {
             className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm"
             onClick={() => setIsModalOpen(false)}
           />
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-md z-10 p-6 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+            {modalMode === "preview" ? (
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${getStatusColour((editingEvent.status || "not_applied") as EventStatus)}`}>
+                        {(editingEvent.status || "not_applied").replace("_", " ")}
+                      </span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        editingEvent.priority === "high"
+                          ? "bg-[#DC2626]"
+                          : editingEvent.priority === "medium"
+                            ? "border border-[#F97316]"
+                            : "bg-[#10B981]"
+                      }`} />
+                    </div>
+                    <h3 className="font-display text-3xl font-bold text-on-surface">{editingEvent.name || "Untitled event"}</h3>
+                    <p className="text-on-surface-variant mt-1">{editingEvent.location || "No location added"}</p>
+                  </div>
+                  <button
+                    onClick={() => setModalMode("edit")}
+                    className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {renderMiniEventCalendar()}
+                  <div className="rounded-xl bg-surface-container-low p-3">
+                    <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Date</p>
+                    <p className="font-medium text-on-surface">
+                      {editingEvent.isTBA ? (editingEvent.date?.substring(0, 7) || "TBA") : (formatDate(editingEvent.date || "") || "-")}
+                    </p>
+                  </div>
+                  {editingEvent.followUpDate && (
+                    <div className="rounded-xl bg-surface-container-low p-3 text-sm">
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Follow-up</p>
+                      <p className="font-medium text-on-surface">{formatDate(editingEvent.followUpDate)}</p>
+                    </div>
+                  )}
+                  {(editingEvent.contactName || editingEvent.contactDetails) && (
+                    <div className="rounded-xl bg-surface-container-low p-3 text-sm">
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-1">Contact</p>
+                      <p className="font-medium text-on-surface">
+                        {editingEvent.contactName || editingEvent.contactDetails}
+                        {editingEvent.contactName && editingEvent.contactDetails ? ` (${editingEvent.contactDetails})` : ""}
+                      </p>
+                    </div>
+                  )}
+                  {editingEvent.notes && (
+                    <div>
+                      <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Notes</p>
+                      <div className="rounded-xl bg-surface-container-low p-3 text-sm text-on-surface">
+                        {editingEvent.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Attachments</p>
+                  {(editingEvent.documents || []).length === 0 ? (
+                    <p className="text-sm text-on-surface-variant">No attachments.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {(editingEvent.documents || []).map((doc, idx) => (
+                        <div key={idx} className="text-sm text-primary font-medium">- {doc.split("/").pop()}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase font-semibold text-on-surface-variant mb-2">Tasks</p>
+                  {(editingEvent.tasks || []).length === 0 ? (
+                    <p className="text-sm text-on-surface-variant">No tasks added.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(editingEvent.tasks || []).map((task, idx) => (
+                        <div key={idx} className="rounded-xl bg-surface-container-low p-3 flex items-center gap-3">
+                          <input type="checkbox" checked={task.completed} readOnly className="w-4 h-4 rounded border-outline-variant/30" />
+                          <div>
+                            <p className="text-sm font-semibold text-on-surface">{task.title || "Untitled task"}</p>
+                            {task.description && <p className="text-xs text-on-surface-variant">{task.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end border-t border-outline-variant/15 pt-4">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             <h3 className="font-display text-2xl font-bold text-on-surface">
-              {isEditing ? "Edit Event" : "New Event"}{" "}
+              {editingEvent.id ? "Edit Event" : "New Event"}{" "}
               {editingEvent.isTBA ? "(TBA)" : ""}
             </h3>
 
@@ -378,7 +517,7 @@ export default function EventsPage() {
                     onChange={(e) =>
                       setEditingEvent({
                         ...editingEvent,
-                        priority: e.target.value as any,
+                        priority: e.target.value as EventPriority,
                       })
                     }
                     className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
@@ -560,16 +699,14 @@ export default function EventsPage() {
                           }
                           className="w-full bg-transparent text-sm font-semibold text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none"
                         />
-                        <textarea
-                          placeholder="Description..."
-                          value={task.description}
-                          onChange={(e) =>
-                            updateTask(idx, { description: e.target.value })
-                          }
-                          className="w-full bg-transparent text-xs text-on-surface-variant placeholder:text-on-surface-variant/30 focus:outline-none resize-none"
-                          rows={1}
-                        />
                         <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleTaskExpansion(idx)}
+                            className="text-[10px] font-bold uppercase text-primary hover:text-primary-container"
+                          >
+                            {expandedTaskIndexes[idx] ? "Hide Comments" : "Add Comments"}
+                          </button>
                           <select
                             value={task.assignedTo || ""}
                             onChange={(e) =>
@@ -592,6 +729,17 @@ export default function EventsPage() {
                             Remove
                           </button>
                         </div>
+                        {expandedTaskIndexes[idx] && (
+                          <textarea
+                            placeholder="Comments..."
+                            value={task.description || ""}
+                            onChange={(e) =>
+                              updateTask(idx, { description: e.target.value })
+                            }
+                            className="w-full bg-surface text-xs text-on-surface rounded-lg border border-outline-variant/20 p-2 placeholder:text-on-surface-variant/40 focus:outline-none"
+                            rows={3}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -651,7 +799,6 @@ export default function EventsPage() {
                 Mark as TBA Event (No fixed date)
               </span>
             </label>
-          </div>
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/15">
             <button
               onClick={() => setIsModalOpen(false)}
@@ -664,9 +811,12 @@ export default function EventsPage() {
               disabled={saving}
               className={`bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {saving ? "Saving..." : (isEditing ? "Save Changes" : "Add Event")}
+              {saving ? "Saving..." : (editingEvent.id ? "Save Changes" : "Add Event")}
             </button>
           </div>
+              </>
+            )}
+        </div>
         </div>
       )}
     </div>

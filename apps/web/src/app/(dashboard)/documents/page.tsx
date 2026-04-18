@@ -21,6 +21,8 @@ export default function DocumentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newDocName, setNewDocName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<Doc | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -93,6 +95,15 @@ export default function DocumentsPage() {
     loadData();
   };
 
+  const getDocumentPublicUrl = (path: string) => {
+    const supabase = createClient();
+    const { data } = supabase.storage.from("documents").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const isImageDoc = (doc: Doc) => doc.type.toLowerCase().startsWith("image");
+  const isPdfDoc = (doc: Doc) => doc.type.toLowerCase().includes("pdf") || doc.name.toLowerCase().endsWith(".pdf");
+
   return (
     <div 
       className={`relative min-h-[80vh] space-y-8 pb-12 transition-colors duration-200 rounded-3xl ${isDragging ? 'bg-primary/5 ring-2 ring-primary ring-inset' : ''}`}
@@ -132,17 +143,27 @@ export default function DocumentsPage() {
                 <div className="w-12 h-12 bg-surface-container-low text-on-surface rounded-xl flex items-center justify-center font-bold text-xs ring-1 ring-inset ring-outline-variant/30 px-1 truncate text-center">
                   {doc.type}
                 </div>
-                <button 
-                  onClick={async () => {
-                    const supabase = createClient();
-                    const { data } = supabase.storage.from('documents').getPublicUrl(doc.url);
-                    window.open(data.publicUrl, '_blank');
-                  }}
-                  className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition flex items-center gap-1 bg-primary/5"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  OPEN
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const url = getDocumentPublicUrl(doc.url);
+                      setPreviewDoc(doc);
+                      setPreviewUrl(url);
+                    }}
+                    className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition bg-primary/5"
+                  >
+                    PREVIEW
+                  </button>
+                  <button 
+                    onClick={() => {
+                      window.open(getDocumentPublicUrl(doc.url), '_blank');
+                    }}
+                    className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition flex items-center gap-1 bg-primary/5"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    OPEN
+                  </button>
+                </div>
               </div>
               <h3 className="font-semibold text-on-surface mb-1 truncate" title={doc.name}>{doc.name}</h3>
               {doc.eventName && (
@@ -215,6 +236,30 @@ export default function DocumentsPage() {
                 )}
                 {loading ? 'Uploading...' : 'Upload'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-on-surface/30 backdrop-blur-sm" onClick={() => setPreviewDoc(null)} />
+          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-4xl z-10 p-6 flex flex-col gap-4 max-h-[90vh]">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-2xl font-bold text-on-surface truncate">{previewDoc.name}</h3>
+              <button onClick={() => setPreviewDoc(null)} className="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface">Close</button>
+            </div>
+            <div className="border border-outline-variant/20 rounded-xl bg-surface min-h-[60vh] overflow-hidden flex items-center justify-center p-3">
+              {isImageDoc(previewDoc) ? (
+                <img src={previewUrl} alt={previewDoc.name} className="max-h-[75vh] object-contain rounded-lg" />
+              ) : isPdfDoc(previewDoc) ? (
+                <iframe src={previewUrl} title={previewDoc.name} className="w-full h-[70vh] rounded-lg" />
+              ) : (
+                <div className="text-center text-on-surface-variant">
+                  <p>No inline preview for this file type.</p>
+                  <button onClick={() => window.open(previewUrl, "_blank")} className="mt-3 text-primary font-medium">Open in new tab</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
