@@ -203,14 +203,14 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 md:space-y-8 pb-32 md:pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-4xl font-bold text-on-surface">
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-on-surface">
             All Events
           </h1>
-          <span className="text-sm font-bold bg-primary/10 text-primary px-3 py-1 rounded-xl shadow-sm">
-            {filteredEvents.length} Total
+          <span className="text-xs md:text-sm font-black bg-primary/10 text-primary px-3 py-1 rounded-xl shadow-sm border border-primary/10">
+            {filteredEvents.length}
           </span>
         </div>
         <button
@@ -224,23 +224,24 @@ export default function EventsPage() {
             });
             setIsModalOpen(true);
           }}
-          className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+          className="bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition shadow-md shadow-primary/20 w-full md:w-auto active:scale-95"
         >
           + New Event
         </button>
       </div>
 
-      <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container flex items-center gap-4">
+      <div className="bg-surface-container-low p-2 md:p-4 rounded-2xl border border-surface-container flex items-center gap-4">
         <input
           type="text"
           placeholder="Search events..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 bg-surface border border-outline-variant/30 text-on-surface rounded-xl px-4 py-2 focus:ring-1 focus:ring-primary outline-none shadow-sm"
+          className="flex-1 bg-surface border border-outline-variant/30 text-on-surface rounded-xl px-4 py-2.5 focus:ring-1 focus:ring-primary outline-none shadow-sm text-sm"
         />
       </div>
 
-      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-surface-container-low text-on-surface-variant text-sm border-b border-surface-container">
             <tr>
@@ -307,13 +308,67 @@ export default function EventsPage() {
         </table>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="py-20 text-center text-on-surface-variant font-black uppercase tracking-widest opacity-20">
+            Loading...
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="py-20 text-center text-on-surface-variant italic font-medium opacity-40">
+            No events found.
+          </div>
+        ) : (
+          filteredEvents.map((ev) => (
+            <div
+              key={ev.id}
+              onClick={() => {
+                setEditingEvent(ev);
+                setModalMode("preview");
+                setExpandedTaskIndexes({});
+                setIsModalOpen(true);
+              }}
+              className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-sm active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="space-y-1">
+                  <h3 className="font-black text-on-surface text-lg leading-tight">{ev.name}</h3>
+                  <p className="text-xs font-bold text-on-surface-variant/60 uppercase tracking-wider">
+                    {ev.location || "No location"}
+                  </p>
+                </div>
+                <div className={`w-3 h-3 rounded-full mt-1.5 ${
+                  ev.priority === "high" ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]" : 
+                  ev.priority === "medium" ? "bg-orange-400" : "bg-emerald-400"
+                }`} />
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-outline-variant/5">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mb-0.5">Date</span>
+                  <span className="text-sm font-bold text-on-surface">
+                    {ev.isTBA ? "TBA" : formatDate(ev.date)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mb-1">Status</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusColour(ev.status)}`}>
+                    {ev.status.replace("_", " ")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
           <div
-            className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity"
             onClick={() => setIsModalOpen(false)}
           />
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-container-lowest sm:rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-[2.5rem] animate-in slide-in-from-bottom duration-300">
             {modalMode === "preview" ? (
               <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">

@@ -24,9 +24,7 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<Partial<Event>>({});
   const [expandedTaskIndexes, setExpandedTaskIndexes] = useState<Record<number, boolean>>({});
 
-  const [currentDate, setCurrentDate] = useState(
-    new Date(),
-  );
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -44,8 +42,6 @@ export default function CalendarPage() {
   useEffect(() => {
     loadEvents();
     fetchProfiles();
-    // Client-side correction to true local time post-hydration
-    setCurrentDate(new Date());
   }, []);
 
   // Generate calendar days
@@ -77,13 +73,14 @@ export default function CalendarPage() {
 
   // Handlers
   const handleDayClick = (dayStr: string) => {
+    // On mobile, we might want to open the modal directly now that we removed the day scroller
     setModalMode("edit");
     setExpandedTaskIndexes({});
     setEditingEvent({
       date: dayStr,
       status: "not_applied",
       priority: "medium",
-      isTBA: false, // Ensure it shows up on the grid
+      isTBA: false, 
     });
     setIsModalOpen(true);
   };
@@ -272,13 +269,14 @@ export default function CalendarPage() {
       return dayStr >= start && dayStr <= end;
     });
 
+
   return (
-    <div className="space-y-12 pb-12">
+    <div className="space-y-6 md:space-y-12 pb-24 md:pb-12">
       {/* Calendar Section */}
       <section>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <h1 className="font-display text-4xl font-bold text-on-surface min-w-[220px]">
+            <h1 className="font-display text-2xl md:text-4xl font-bold text-on-surface">
               {new Intl.DateTimeFormat("en-AU", {
                 month: "long",
                 year: "numeric",
@@ -293,22 +291,22 @@ export default function CalendarPage() {
                   setCurrentDate(new Date(Number(y), Number(m) - 1, 1));
                 }
               }}
-              className="px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-base font-semibold hover:border-outline-variant text-on-surface shadow-sm cursor-pointer focus:ring-2 focus:ring-primary focus:outline-none"
+              className="hidden md:block px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-base font-semibold hover:border-outline-variant text-on-surface shadow-sm cursor-pointer focus:ring-2 focus:ring-primary focus:outline-none"
               aria-label="Select Date"
             />
-            <div className="flex items-center gap-1 bg-surface-container-low rounded-xl p-1 border border-surface-container shadow-sm ml-2">
+            <div className="flex items-center gap-1 bg-surface-container-low rounded-xl p-1 border border-surface-container shadow-sm">
               <button
                 onClick={() =>
                   setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
                 }
-                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-on-surface-variant hover:text-on-surface font-semibold"
+                className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-on-surface-variant hover:text-on-surface font-semibold"
                 aria-label="Previous month"
               >
                 &larr;
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-4 h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-sm font-semibold text-on-surface"
+                className="px-3 md:px-4 h-8 md:h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-xs md:text-sm font-semibold text-on-surface"
               >
                 Today
               </button>
@@ -316,7 +314,7 @@ export default function CalendarPage() {
                 onClick={() =>
                   setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
                 }
-                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-on-surface-variant hover:text-on-surface font-semibold"
+                className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-surface-container-high rounded-lg transition text-on-surface-variant hover:text-on-surface font-semibold"
                 aria-label="Next month"
               >
                 &rarr;
@@ -335,24 +333,25 @@ export default function CalendarPage() {
               });
               setIsModalOpen(true);
             }}
-            className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+            className="bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition shadow-md shadow-primary/20 w-full md:w-auto active:scale-95"
           >
             + New Event
           </button>
         </div>
 
+        {/* Calendar Grid View (Mobile & Desktop) */}
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.06)] overflow-hidden border border-surface-container">
           <div className="grid grid-cols-7 border-b border-surface-container bg-surface-container-low">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
               <div
                 key={d}
-                className="px-4 py-3 text-sm font-semibold uppercase text-on-surface-variant text-center"
+                className="px-1 py-3 text-[10px] md:text-sm font-black uppercase tracking-widest text-on-surface-variant text-center"
               >
                 {d}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)] bg-surface relative">
+          <div className="grid grid-cols-7 auto-rows-[minmax(80px,auto)] md:auto-rows-[minmax(120px,auto)] bg-surface relative">
             {loading && (
               <div className="absolute inset-0 bg-surface/50 backdrop-blur-[1px] z-10 flex items-center justify-center font-medium text-on-surface-variant">
                 Loading...
@@ -361,13 +360,13 @@ export default function CalendarPage() {
             {prevMonthBlanks.map((day) => (
               <div
                 key={`prev-${day}`}
-                className="border-r border-b border-surface-container-low/50 p-2 flex flex-col min-h-[120px] select-none"
+                className="border-r border-b border-surface-container-low/50 p-1 md:p-2 flex flex-col min-h-[80px] md:min-h-[120px] select-none"
                 style={{
                   backgroundImage:
                     "repeating-linear-gradient(45deg, rgba(220,38,38,0.02), rgba(220,38,38,0.02) 10px, rgba(220,38,38,0.05) 10px, rgba(220,38,38,0.05) 20px)",
                 }}
               >
-                <span className="text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-1 text-red-600/40 bg-red-500/5">
+                <span className="text-[10px] md:text-sm font-medium w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full mb-1 text-red-600/40 bg-red-500/5">
                   {day}
                 </span>
               </div>
@@ -379,23 +378,23 @@ export default function CalendarPage() {
                 <div
                   key={day}
                   onClick={() => handleDayClick(dayStr)}
-                  className="border-r border-b border-surface-container-low p-2 hover:bg-surface-container-low cursor-pointer transition flex flex-col group min-h-[120px]"
+                  className="border-r border-b border-surface-container-low p-1 md:p-2 hover:bg-surface-container-low cursor-pointer transition flex flex-col group min-h-[80px] md:min-h-[120px]"
                 >
                   <span
-                    className={`text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-1
-                    ${day === today.getDate() && currentMonth === today.getMonth() ? "bg-primary text-white" : "text-on-surface-variant group-hover:text-primary"}`}
+                    className={`text-[10px] md:text-sm font-black w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full mb-1
+                    ${day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear() ? "bg-primary text-white" : "text-on-surface-variant group-hover:text-primary"}`}
                   >
                     {day}
                   </span>
-                  <div className="space-y-1 overflow-y-auto flex-1">
+                  <div className="space-y-0.5 md:space-y-1 overflow-y-auto flex-1 no-scrollbar">
                     {dayEvents.map((ev) => (
                       <div
                         key={ev.id}
                         onClick={(e) => handleEventClick(e, ev)}
-                        className={`text-[10px] leading-tight px-2 py-1.5 rounded-lg shadow-sm border border-black/5 flex items-center gap-1.5 mb-1 transition-transform hover:scale-[1.02] active:scale-[0.98] ${getStatusColour(ev.status)}`}
+                        className={`text-[8px] md:text-[10px] leading-tight px-1 md:px-2 py-1 md:py-1.5 rounded-md md:rounded-lg shadow-sm border border-black/5 flex items-center gap-1 transition-transform hover:scale-[1.02] active:scale-[0.98] ${getStatusColour(ev.status)}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0
+                          className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full flex-shrink-0
                           ${
                             ev.priority === "high"
                               ? "bg-white border border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.5)]"
@@ -404,7 +403,7 @@ export default function CalendarPage() {
                                 : "bg-white/40 border border-white/5"
                           }`}
                         />
-                        <span className="truncate flex-1">{ev.name}</span>
+                        <span className="truncate flex-1 font-bold md:font-semibold">{ev.name}</span>
                       </div>
                     ))}
                   </div>
@@ -414,13 +413,13 @@ export default function CalendarPage() {
             {nextMonthBlanks.map((day) => (
               <div
                 key={`next-${day}`}
-                className="border-r border-b border-surface-container-low/50 p-2 flex flex-col min-h-[120px] select-none"
+                className="border-r border-b border-surface-container-low/50 p-1 md:p-2 flex flex-col min-h-[80px] md:min-h-[120px] select-none"
                 style={{
                   backgroundImage:
                     "repeating-linear-gradient(45deg, rgba(220,38,38,0.02), rgba(220,38,38,0.02) 10px, rgba(220,38,38,0.05) 10px, rgba(220,38,38,0.05) 20px)",
                 }}
               >
-                <span className="text-sm font-medium w-8 h-8 flex items-center justify-center rounded-full mb-1 text-red-600/40 bg-red-500/5">
+                <span className="text-[10px] md:text-sm font-medium w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full mb-1 text-red-600/40 bg-red-500/5">
                   {day}
                 </span>
               </div>
@@ -429,33 +428,19 @@ export default function CalendarPage() {
         </div>
       </section>
 
-      {/* TBA Events Section */}
+      {/* Monthly Events Section */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
-            Monthly Events
-            <span className="text-sm font-bold bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-lg border border-outline-variant/30">
+        <div className="flex items-center justify-between mb-4 px-2">
+          <h2 className="font-display text-xl md:text-2xl font-bold text-on-surface flex items-center gap-3">
+            Monthly Overview
+            <span className="text-xs font-black bg-surface-container-high text-on-surface-variant px-2.5 py-1 rounded-lg border border-outline-variant/30">
               {tableEvents.length}
             </span>
           </h2>
-          <button
-            onClick={() => {
-              setModalMode("edit");
-              setExpandedTaskIndexes({});
-              setEditingEvent({
-                status: "not_applied",
-                priority: "medium",
-                isTBA: true,
-                date: currentMonthStr,
-              });
-              setIsModalOpen(true);
-            }}
-            className="text-primary hover:text-primary-container font-medium text-sm"
-          >
-            + Add TBA Event
-          </button>
         </div>
-        <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden">
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-surface-container-low text-on-surface-variant text-sm border-b border-surface-container">
               <tr>
@@ -525,16 +510,90 @@ export default function CalendarPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Monthly Overview Table (Mobile & Desktop) */}
+        <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container overflow-hidden">
+          <div className="overflow-x-auto no-scrollbar">
+            <table className="w-full text-left">
+              <thead className="bg-surface-container-low text-on-surface-variant text-[10px] md:text-sm border-b border-surface-container">
+                <tr>
+                  <th className="font-black uppercase tracking-widest px-4 md:px-6 py-4">Event Name</th>
+                  <th className="font-black uppercase tracking-widest px-4 md:px-6 py-4 whitespace-nowrap">Date</th>
+                  <th className="font-black uppercase tracking-widest px-4 md:px-6 py-4">Status</th>
+                  <th className="font-black uppercase tracking-widest px-4 md:px-6 py-4 hidden sm:table-cell">Priority</th>
+                  <th className="font-black uppercase tracking-widest px-4 md:px-6 py-4 hidden lg:table-cell">Contact</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container text-xs md:text-sm">
+                {tableEvents.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-12 text-center text-on-surface-variant italic font-medium opacity-50"
+                    >
+                      No events found for this month.
+                    </td>
+                  </tr>
+                )}
+                {tableEvents.map((ev) => (
+                  <tr
+                    key={ev.id}
+                    onClick={(e) => handleEventClick(e, ev)}
+                    className="hover:bg-primary/5 cursor-pointer transition-colors text-on-surface group"
+                  >
+                    <td className="px-4 md:px-6 py-4 font-bold md:font-semibold group-hover:text-primary transition-colors">{ev.name}</td>
+                    <td className="px-4 md:px-6 py-4">
+                      {ev.isTBA ? (
+                        <span className="px-2 py-0.5 bg-surface-container-high text-on-surface-variant rounded-md text-[10px] font-black uppercase tracking-widest">
+                          TBA
+                        </span>
+                      ) : (
+                        <span className="text-on-surface-variant font-medium whitespace-nowrap">
+                          {formatDate(ev.date) || "-"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 md:px-6 py-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getStatusColour(ev.status)}`}
+                      >
+                        {ev.status.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
+                      <div className="flex items-center gap-2 text-on-surface-variant whitespace-nowrap">
+                        <span
+                          className={`w-2 h-2 rounded-full flex-shrink-0
+                          ${
+                            ev.priority === "high"
+                              ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+                              : ev.priority === "medium"
+                                ? "bg-orange-400"
+                                : "bg-emerald-500"
+                          }`}
+                        />
+                        <span className="font-bold text-[10px] uppercase tracking-wider">{getPriorityLabel(ev.priority)}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 hidden lg:table-cell font-medium text-on-surface-variant">
+                      {ev.contactName || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       {/* Event Modal Popup */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
           <div
-            className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm"
+            className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity"
             onClick={() => setIsModalOpen(false)}
           />
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-container-lowest sm:rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-[2.5rem] animate-in slide-in-from-bottom duration-300">
             {modalMode === "preview" ? (
               <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">

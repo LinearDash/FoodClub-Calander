@@ -44,7 +44,6 @@ export default function DocumentsPage() {
   };
 
   const loadData = async () => {
-    setLoading(true);
     const data = await getGlobalDocuments();
     setDocs(data);
     setLoading(false);
@@ -106,7 +105,7 @@ export default function DocumentsPage() {
 
   return (
     <div 
-      className={`relative min-h-[80vh] space-y-8 pb-12 transition-colors duration-200 rounded-3xl ${isDragging ? 'bg-primary/5 ring-2 ring-primary ring-inset' : ''}`}
+      className={`relative min-h-[80vh] space-y-6 md:space-y-8 pb-32 md:pb-12 transition-colors duration-200 rounded-3xl ${isDragging ? 'bg-primary/5 ring-2 ring-primary ring-inset' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -120,28 +119,28 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between px-2 pt-2">
-        <h1 className="font-display text-4xl font-bold text-on-surface">Documents</h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2 pt-2">
+        <h1 className="font-display text-3xl md:text-4xl font-bold text-on-surface">Documents</h1>
         
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
+          className="bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition shadow-md shadow-primary/20 w-full md:w-auto active:scale-95"
         >
           + Add Document
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-2">
         {loading ? (
-          <div className="col-span-full py-20 text-center animate-pulse text-on-surface-variant font-medium">
-            Loading your business library...
+          <div className="col-span-full py-20 text-center animate-pulse text-on-surface-variant/30 font-black uppercase tracking-[0.2em]">
+            Loading...
           </div>
         ) : docs.map(doc => (
-          <div key={doc.id} className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-[0_4px_20px_rgba(29,28,24,0.03)] hover:shadow-[0_8px_30px_rgba(29,28,24,0.08)] transition group flex flex-col justify-between">
+          <div key={doc.id} className="bg-surface-container-lowest p-5 rounded-3xl border border-surface-container shadow-sm hover:shadow-md transition group flex flex-col justify-between h-[180px] md:h-auto">
             <div>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 bg-surface-container-low text-on-surface rounded-xl flex items-center justify-center font-bold text-xs ring-1 ring-inset ring-outline-variant/30 px-1 truncate text-center">
-                  {doc.type}
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-surface-container-low text-on-surface-variant rounded-xl flex items-center justify-center font-black text-[10px] md:text-xs ring-1 ring-inset ring-outline-variant/20 px-1 truncate text-center uppercase tracking-tighter">
+                  {doc.type.split('/')[1] || doc.type}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -150,69 +149,68 @@ export default function DocumentsPage() {
                       setPreviewDoc(doc);
                       setPreviewUrl(url);
                     }}
-                    className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition bg-primary/5"
+                    className="text-primary font-black text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition bg-primary/5 active:scale-90"
                   >
-                    PREVIEW
+                    View
                   </button>
                   <button 
                     onClick={() => {
                       window.open(getDocumentPublicUrl(doc.url), '_blank');
                     }}
-                    className="text-primary hover:text-primary-container font-medium text-sm px-3 py-1.5 rounded-lg hover:bg-primary-fixed/30 transition flex items-center gap-1 bg-primary/5"
+                    className="p-1.5 text-on-surface-variant/40 hover:text-primary transition rounded-lg hover:bg-primary/5 hidden md:block"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    OPEN
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                   </button>
                 </div>
               </div>
-              <h3 className="font-semibold text-on-surface mb-1 truncate" title={doc.name}>{doc.name}</h3>
+              <h3 className="font-bold text-on-surface mb-1 truncate text-base md:text-lg" title={doc.name}>{doc.name}</h3>
               {doc.eventName && (
-                <p className="text-[10px] font-bold text-primary uppercase mb-2">Linked to: {doc.eventName}</p>
+                <p className="text-[10px] font-black text-primary uppercase tracking-wider mb-2 opacity-60">Linked to: {doc.eventName}</p>
               )}
             </div>
-            <div className="flex items-center justify-between text-xs text-on-surface-variant font-medium pt-4 border-t border-surface-container-low mt-2">
+            <div className="flex items-center justify-between text-[10px] text-on-surface-variant/40 font-black uppercase tracking-widest pt-4 border-t border-outline-variant/5">
               <span>{doc.size}</span>
               <span>{new Date(doc.date).toLocaleDateString()}</span>
             </div>
           </div>
         ))}
         {!loading && docs.length === 0 && (
-           <div className="col-span-full py-12 text-center text-on-surface-variant border-2 border-dashed border-outline-variant/30 rounded-2xl">
-             No documents uploaded yet. Drag and drop files here.
+           <div className="col-span-full py-20 text-center text-on-surface-variant/40 border-2 border-dashed border-outline-variant/10 rounded-[2rem] italic">
+             No documents yet.
            </div>
         )}
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-md z-10 p-6 flex flex-col gap-6">
-            <h3 className="font-display text-2xl font-bold text-on-surface">Upload Document</h3>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)} />
+          <div className="bg-surface-container-lowest sm:rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-md z-10 p-6 flex flex-col gap-6 h-[60vh] sm:h-auto overflow-y-auto rounded-t-[2.5rem] animate-in slide-in-from-bottom duration-300">
+            <h3 className="font-display text-2xl font-black text-on-surface">Add Document</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">Document Name (Optional)</label>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60 mb-2 px-1">Document Name (Optional)</label>
                 <input 
                   type="text" 
                   value={newDocName} 
                   onChange={(e) => setNewDocName(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm" 
+                  className="w-full px-4 py-3 rounded-2xl bg-surface border border-outline-variant/20 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-sm text-sm" 
                   placeholder="e.g., Insurance Policy 2026"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">Select File</label>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60 mb-2 px-1">Select File</label>
                 <input 
                   type="file" 
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-surface-container-high file:text-on-surface hover:file:bg-surface-container-highest cursor-pointer focus:outline-none border border-outline-variant/30 rounded-xl p-1 bg-surface"
+                  className="w-full text-sm text-on-surface-variant file:mr-4 file:py-2.5 file:px-6 file:rounded-2xl file:border-0 file:text-[10px] file:font-black file:uppercase file:tracking-[0.2em] file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer focus:outline-none border border-outline-variant/20 rounded-2xl p-2 bg-surface shadow-sm"
                 />
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/15">
+            <div className="flex items-center justify-end gap-3 pt-6 border-t border-outline-variant/5">
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
+                className="px-6 py-3 font-bold text-xs uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition"
               >
                 Cancel
               </button>
@@ -226,14 +224,8 @@ export default function DocumentsPage() {
                     setSelectedFile(null);
                   }
                 }}
-                className="bg-primary text-white px-6 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-primary text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-[0.15em] hover:opacity-90 transition shadow-lg shadow-primary/30 disabled:opacity-20 disabled:grayscale flex items-center gap-2"
               >
-                {loading && (
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                )}
                 {loading ? 'Uploading...' : 'Upload'}
               </button>
             </div>
@@ -242,22 +234,36 @@ export default function DocumentsPage() {
       )}
 
       {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-on-surface/30 backdrop-blur-sm" onClick={() => setPreviewDoc(null)} />
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-4xl z-10 p-6 flex flex-col gap-4 max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity" onClick={() => setPreviewDoc(null)} />
+          <div className="bg-surface-container-lowest sm:rounded-[2.5rem] shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-4xl z-10 p-6 md:p-8 flex flex-col gap-6 h-[92vh] sm:h-auto sm:max-h-[90vh] rounded-t-[3rem] animate-in slide-in-from-bottom duration-300">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-2xl font-bold text-on-surface truncate">{previewDoc.name}</h3>
-              <button onClick={() => setPreviewDoc(null)} className="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface">Close</button>
+              <h3 className="font-display text-xl md:text-2xl font-black text-on-surface truncate">{previewDoc.name}</h3>
+              <button 
+                onClick={() => setPreviewDoc(null)} 
+                className="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-surface-container transition text-on-surface-variant/40 hover:text-on-surface"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
-            <div className="border border-outline-variant/20 rounded-xl bg-surface min-h-[60vh] overflow-hidden flex items-center justify-center p-3">
+            <div className="border border-outline-variant/10 rounded-3xl bg-surface-container-low min-h-[60vh] overflow-hidden flex items-center justify-center p-2 relative">
               {isImageDoc(previewDoc) ? (
-                <img src={previewUrl} alt={previewDoc.name} className="max-h-[75vh] object-contain rounded-lg" />
+                <img src={previewUrl} alt={previewDoc.name} className="max-h-[75vh] object-contain rounded-2xl shadow-xl" />
               ) : isPdfDoc(previewDoc) ? (
-                <iframe src={previewUrl} title={previewDoc.name} className="w-full h-[70vh] rounded-lg" />
+                <iframe src={previewUrl} title={previewDoc.name} className="w-full h-[70vh] rounded-2xl shadow-inner bg-white" />
               ) : (
-                <div className="text-center text-on-surface-variant">
-                  <p>No inline preview for this file type.</p>
-                  <button onClick={() => window.open(previewUrl, "_blank")} className="mt-3 text-primary font-medium">Open in new tab</button>
+                <div className="text-center p-12">
+                  <div className="w-20 h-20 bg-surface-container-lowest rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-outline-variant/10 text-on-surface-variant/20">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </div>
+                  <p className="font-bold text-on-surface mb-2">Preview not available</p>
+                  <p className="text-xs font-medium text-on-surface-variant/60 mb-6">We can&apos;t show a preview of this file type yet.</p>
+                  <button 
+                    onClick={() => window.open(previewUrl, "_blank")} 
+                    className="bg-primary text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                  >
+                    Open in new tab
+                  </button>
                 </div>
               )}
             </div>
