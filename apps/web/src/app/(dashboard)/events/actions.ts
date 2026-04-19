@@ -17,6 +17,16 @@ function mapTaskFromDB(t: any): Task {
   }
 }
 
+function mapTaskCommentFromDB(c: any): TaskComment {
+  return {
+    id: c.id,
+    taskId: c.task_id,
+    userId: c.user_id,
+    content: c.content,
+    createdAt: c.created_at,
+  }
+}
+
 // Helper to map DB snake_case to Frontend camelCase
 function mapEventFromDB(dbEvent: any): Event {
   return {
@@ -172,25 +182,22 @@ export async function saveDocumentRecord(eventId: string, filePath: string, file
   return { data }
 }
 
-export async function getProfiles() {
+export async function syncUserProfile() {
   const supabase = await createClient()
-  
-  // Self-healing: Ensure the current user has a profile record
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      // We check for existence without .single() to avoid throwing on "not found"
       const { data: existingProfiles, error: checkError } = await supabase
         .from('profiles')
         .select('id')
         .eq('id', user.id)
       
       if (!checkError && existingProfiles && existingProfiles.length === 0) {
-        // Create missing profile for the logged in user
         const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Unknown User'
         await supabase.from('profiles').insert({
           id: user.id,
           full_name: fullName,
+          email: user.email,
           role: 'Team Member'
         })
       }
@@ -198,7 +205,11 @@ export async function getProfiles() {
   } catch (err) {
     console.error('Profile sync error:', err)
   }
+}
 
+export async function getProfiles() {
+  const supabase = await createClient()
+  
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, role')
@@ -335,4 +346,60 @@ export async function addStandaloneTask(task: Partial<Task>) {
   revalidatePath('/events')
   revalidatePath('/calendar')
   return { data: mapTaskFromDB(data) }
+}
+
+export async function deleteTask(taskId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('id', taskId)
+
+  if (error) {
+    console.error('Error deleting task:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/tasks')
+  revalidatePath('/events')
+  revalidatePath('/calendar')
+}
+
+export async function getTaskComments(taskId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('task_comments')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching task comments:', error)
+    return []
+  }
+
+  return data.map(mapTaskCommentFromDB)
+}
+
+export async function addTaskComment(taskId: string, content: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data, error } = await supabase
+    .from('task_comments')
+    .insert({
+      task_id: taskId,
+      user_id: user.id,
+      content
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error adding task comment:', error)
+    return { error: error.message }
+  }
+
+  return { data: mapTaskCommentFromDB(data) }
 }

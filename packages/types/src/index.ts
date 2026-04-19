@@ -29,6 +29,14 @@ export interface Event {
   tasks: Task[];
 }
 
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   eventId: string;
@@ -37,6 +45,7 @@ export interface Task {
   assignedTo: string;
   dueDate?: string;
   completed: boolean;
+  comments?: TaskComment[];
 }
 
 export interface User {
