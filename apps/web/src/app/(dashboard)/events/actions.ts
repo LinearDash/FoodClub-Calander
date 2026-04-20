@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { Event, EventStatus, EventPriority, Task } from '@foodclub/types'
+import { Event, EventStatus, EventPriority, Task, TaskComment } from '@foodclub/types'
 import { revalidatePath } from 'next/cache'
 
 // Helper to map DB task to Frontend Task
