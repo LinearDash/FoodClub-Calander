@@ -46,30 +46,35 @@ export async function searchEventsWithAI(
               }
             })
             .join(", ")}`
-        : "looking at the shadows of upcoming months in 2026";
+        : "looking at upcoming months in 2026";
 
     const systemPrompt = `
       PERSONA:
-      You are the AI Event Assistant. Your role is to provide accurate, data-driven event discovery services for professional food vendors.
-      Your tone is strictly professional, clear, and efficient. Avoid metaphors, slang, or any "detective" roleplay.
-      You focus on delivering high-quality leads that help vendors expand their business.
+      You are the AI Event Assistant. Your role is to provide accurate, data-driven event discovery services for professional food vendors in Perth, WA.
+      Your tone is strictly professional, clear, and efficient.
+
+      TRUSTED SOURCES (Priority Knowledge Base):
+      1. Government/Regional: westernaustralia.com/things-to-do/events, visitperth.com/events, tourism.wa.gov.au, celebratewa.com.au/events
+      2. Agricultural Societies: raswa.org.au (The "Show" Bible for WA)
+      3. Vendor-Specific Portals: fringeworld.com.au/as-a-vendor, perthmarket.com.au, marketlife.com.au, perthhillsevents.com/vendors
+      4. Media/Listings: broadsheet.com.au, eventbrite.com.au (WA), theurbanlist.com
 
       CONTEXT:
       - Location: Perth, Western Australia (+${searchParams.radius}km).
       - Target Events: ${searchParams.type === "all" ? "Festivals, Markets, and large-scale public events" : searchParams.type}.
       - Target Dates: ${dateContext}.
-      - Existing Database: ${JSON.stringify(formattedExistingEvents)} (Do not suggest these). 
+      - Database Context: Avoid suggesting events already in: ${JSON.stringify(formattedExistingEvents)}.
 
       INSTRUCTIONS:
-      1. INTENT ANALYSIS: Determine if the user is greeting you ("chat") or requesting event data ("search").
-      2. RESPONSE STYLE: Provide a professional verbal summary of your findings or respond to the user's inquiry clearly.
-      3. EVENT DISCOVERY (Search mode): Identify REAL, verified upcoming events matching the criteria.
-      4. SOURCE LINKS: Provide a direct, valid URL for each event found.
+      1. GROUNDED INQUIRY: Leverage your knowledge of the Trusted Sources above to identify 2026 dates and vendor application statuses.
+      2. CROSS-REFERENCE: Prioritize dates from the Government and RASWA sources above.
+      3. VENDOR FOCUS: Identify if events are currently accepting EOIs (Expressions of Interest) for food stalls.
+      4. SOURCE LINKS: Every event found must have a direct, valid sourceUrl.
 
       OUTPUT SCHEMA (Strict JSON):
       {
         "intent": "chat" | "search",
-        "verbalResponse": "A professional summary of your findings or response...",
+        "verbalResponse": "A professional summary of your results. Mention which trusted source validates this event lead.",
         "events": [
           {
             "name": "Event Name",
@@ -77,7 +82,7 @@ export async function searchEventsWithAI(
             "location": "Address in Perth",
             "date": "YYYY-MM-DD",
             "dateLabel": "DD MMM",
-            "description": "Professional summary of the opportunity for a vendor.",
+            "description": "Professional summary focusing on vendor opportunities and vendor application status if known.",
             "sourceUrl": "Direct URL link"
           }
         ]
@@ -112,10 +117,45 @@ export async function searchEventsWithAI(
     }
   } catch (error: any) {
     console.error("AI_SEARCH_ERROR:", error);
-    return {
-      error:
-        error.message ||
-        "An unexpected error occurred during the search process.",
-    };
+
+    const errorMessage = error.message || "";
+    let userFriendlyError =
+      "An unexpected error occurred during the search process. Please try again later.";
+
+    if (
+      errorMessage.includes("503") ||
+      errorMessage.includes("Service Unavailable") ||
+      errorMessage.includes("high demand")
+    ) {
+      userFriendlyError =
+        "The AI search service is currently at peak capacity. Please try again in a few moments.";
+    } else if (
+      errorMessage.includes("429") ||
+      errorMessage.includes("Rate limit")
+    ) {
+      userFriendlyError =
+        "System is busy processing multiple requests. Please wait about 60 seconds before trying again.";
+    } else if (
+      errorMessage.includes("401") ||
+      errorMessage.includes("403") ||
+      errorMessage.includes("API key")
+    ) {
+      userFriendlyError =
+        "Search service configuration error. Please ensure the system administrator has verified the API credentials.";
+    } else if (
+      errorMessage.includes("safety") ||
+      errorMessage.includes("blocked")
+    ) {
+      userFriendlyError =
+        "The search results could not be generated due to content filters. Please try rephrasing your search leads.";
+    } else if (
+      errorMessage.includes("deadline") ||
+      errorMessage.includes("timeout")
+    ) {
+      userFriendlyError =
+        "The search took longer than expected. Please try a more specific date range or location.";
+    }
+
+    return { error: userFriendlyError };
   }
 }
