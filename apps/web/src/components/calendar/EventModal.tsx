@@ -162,7 +162,8 @@ export default function EventModal({
         className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      <div className="bg-surface-container-lowest rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 sm:p-8 p-5 flex flex-col sm:gap-6 gap-4 h-[94vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden animate-in slide-in-from-bottom duration-300 relative">
+      <div className="bg-surface-container-lowest rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 overflow-hidden animate-in slide-in-from-bottom duration-300 relative">
+        <div className="h-[94vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden no-scrollbar sm:p-8 p-5 flex flex-col sm:gap-6 gap-4">
         {/* Mobile Indicator Handle */}
         <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full mx-auto mb-2 sm:hidden flex-shrink-0" />
         
@@ -504,7 +505,7 @@ export default function EventModal({
                     + Add Task
                   </button>
                 </div>
-                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 no-scrollbar">
                   {(event.tasks || []).length === 0 && (
                     <div className="text-sm text-on-surface-variant/50 italic py-2">
                       No tasks added yet.
@@ -649,6 +650,7 @@ export default function EventModal({
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );
