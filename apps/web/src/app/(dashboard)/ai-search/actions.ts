@@ -1,102 +1,121 @@
-'use server'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server";
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
-import { getEvents } from '../events/actions'
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getEvents } from "../events/actions";
 
-export async function searchEventsWithAI(userPrompt: string, selectedDates: Date[], searchParams: any) {
+export async function searchEventsWithAI(
+  userPrompt: string,
+  selectedDates: Date[],
+  searchParams: any,
+) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    console.log(`[AI Search] Attempting search. API Key length: ${apiKey?.length || 0}`);
-
     if (!apiKey || apiKey.length < 10) {
-      return { error: 'Gemini API key is not being read correctly. Please ensure GEMINI_API_KEY is in apps/web/.env.local and you have restarted the server.' }
+      return {
+        error:
+          "Search service configuration error: Gemini API key missing or invalid.",
+      };
     }
 
-    // Initialize inside the action to ensure env is fresh
-    const genAI = new GoogleGenerativeAI(apiKey)
-    
+    const genAI = new GoogleGenerativeAI(apiKey);
+
     // 1. Fetch existing events for context (to avoid duplicates)
-    const existingEvents = await getEvents()
-    const formattedExistingEvents = existingEvents.map(e => ({
+    const existingEvents = await getEvents();
+    const formattedExistingEvents = existingEvents.map((e) => ({
       name: e.name,
       date: e.date,
-      location: e.location
-    }))
+      location: e.location,
+    }));
 
-    // 2. Prepare the model
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-flash-latest',
+    const model = genAI.getGenerativeModel({
+      model: "gemini-flash-latest",
       generationConfig: {
-        responseMimeType: 'application/json',
-      }
-    })
+        responseMimeType: "application/json",
+      },
+    });
 
-    const dateContext = selectedDates.length > 0 
-      ? `targeting the following dates: ${selectedDates.map(d => {
-          try {
-            return new Date(d).toISOString().split('T')[0];
-          } catch(e) {
-            return d;
-          }
-        }).join(', ')}`
-      : 'targeting upcoming months in 2026'
+    const dateContext =
+      selectedDates.length > 0
+        ? `targeting these specific dates: ${selectedDates
+            .map((d) => {
+              try {
+                return new Date(d).toISOString().split("T")[0];
+              } catch {
+                return d;
+              }
+            })
+            .join(", ")}`
+        : "looking at the shadows of upcoming months in 2026";
 
     const systemPrompt = `
-      You are an "Event Detective" and high-level Culinary Scout. 
-      Your mission is to find events that a food vendor in Perth, Western Australia should attend.
-      
+      PERSONA:
+      You are the AI Event Assistant. Your role is to provide accurate, data-driven event discovery services for professional food vendors.
+      Your tone is strictly professional, clear, and efficient. Avoid metaphors, slang, or any "detective" roleplay.
+      You focus on delivering high-quality leads that help vendors expand their business.
+
       CONTEXT:
-      - Location: Perth, WA (radius of ${searchParams.radius}km).
-      - Event Types: ${searchParams.type === 'all' ? 'Festivals, Markets, Rodeos, Agricultural Shows, Street Festivals' : searchParams.type}.
+      - Location: Perth, Western Australia (+${searchParams.radius}km).
+      - Target Events: ${searchParams.type === "all" ? "Festivals, Markets, and large-scale public events" : searchParams.type}.
       - Target Dates: ${dateContext}.
-      - Existing Events (DO NOT SUGGEST THESE): ${JSON.stringify(formattedExistingEvents)}. 
-      
-      TONE:
-      - Professional, expert, and thorough.
-      
-      GOAL:
-      - Find as many relevant events as possible that are NOT already in the existing events list.
-      - ALWAYS return the results as a VALID JSON ARRAY.
-      
-      Output Schema (Array of objects):
-      [
-        {
-          "name": "Event Name",
-          "type": "festival | market_place | rodeo | agricultural_show | annual_show | street_festival",
-          "location": "Specific address or landmark in Perth",
-          "date": "YYYY-MM-DD",
-          "dateLabel": "DD MMM",
-          "description": "Brief reason why this is a good opportunity for a vendor"
-        }
-      ]
-      
-      Current Request: "${userPrompt}"
-    `
+      - Existing Database: ${JSON.stringify(formattedExistingEvents)} (Do not suggest these). 
 
-    const result = await model.generateContent(systemPrompt)
-    const response = await result.response
-    let text = response.text()
-    
-    // Clean text in case Gemini wraps it in markdown blocks
-    text = text.replace(/```json\n?/, '').replace(/```\n?/, '').trim();
-    
-    try {
-      const parsedResults = JSON.parse(text)
-      return { data: parsedResults }
-    } catch (parseError) {
-      console.error('Failed to parse Gemini response:', text)
-      // Fallback: try to find anything that looks like a JSON array
-      const matches = text.match(/\[\s*\{.*\}\s*\]/s);
-      if (matches) {
-        try {
-          return { data: JSON.parse(matches[0]) };
-        } catch (e) {}
+      INSTRUCTIONS:
+      1. INTENT ANALYSIS: Determine if the user is greeting you ("chat") or requesting event data ("search").
+      2. RESPONSE STYLE: Provide a professional verbal summary of your findings or respond to the user's inquiry clearly.
+      3. EVENT DISCOVERY (Search mode): Identify REAL, verified upcoming events matching the criteria.
+      4. SOURCE LINKS: Provide a direct, valid URL for each event found.
+
+      OUTPUT SCHEMA (Strict JSON):
+      {
+        "intent": "chat" | "search",
+        "verbalResponse": "A professional summary of your findings or response...",
+        "events": [
+          {
+            "name": "Event Name",
+            "type": "festival | market_place | rodeo | agricultural_show",
+            "location": "Address in Perth",
+            "date": "YYYY-MM-DD",
+            "dateLabel": "DD MMM",
+            "description": "Professional summary of the opportunity for a vendor.",
+            "sourceUrl": "Direct URL link"
+          }
+        ]
       }
-      return { error: 'Failed to process AI response format. Please try again.' }
-    }
 
+      Deliver high-quality results.
+      User Request: "${userPrompt}"
+    `;
+
+    const result = await model.generateContent(systemPrompt);
+    const response = await result.response;
+    let text = response.text();
+
+    // Clean text
+    text = text
+      .replace(/```json\n?/, "")
+      .replace(/```\n?/, "")
+      .trim();
+
+    try {
+      const parsedResults = JSON.parse(text);
+      return {
+        intent: parsedResults.intent,
+        message: parsedResults.verbalResponse,
+        data: parsedResults.events || [],
+      };
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", text, parseError);
+      return {
+        error: "Failed to process AI event data. Please try your search again.",
+      };
+    }
   } catch (error: any) {
-    console.error('AI_SEARCH_ERROR:', error)
-    return { error: error.message || 'An error occurred while searching.' }
+    console.error("AI_SEARCH_ERROR:", error);
+    return {
+      error:
+        error.message ||
+        "An unexpected error occurred during the search process.",
+    };
   }
 }

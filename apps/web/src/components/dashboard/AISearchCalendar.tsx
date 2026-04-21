@@ -44,9 +44,22 @@ export default function AISearchCalendar({ selectedDates, onChange }: AISearchCa
   return (
     <div className="select-none">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-bold text-on-surface capitalize">
-          {new Intl.DateTimeFormat("en-AU", { month: "long", year: "numeric" }).format(viewDate)}
-        </span>
+        <div className="flex items-center gap-2">
+          <select 
+            value={currentMonth}
+            onChange={(e) => setViewDate(new Date(currentYear, parseInt(e.target.value), 1))}
+            className="text-sm font-bold bg-transparent border-none p-0 text-on-surface focus:outline-none cursor-pointer hover:text-primary transition-colors appearance-none"
+          >
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={i}>
+                {new Intl.DateTimeFormat("en-AU", { month: "long" }).format(new Date(2000, i, 1))}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm font-bold text-on-surface/40">
+            {currentYear}
+          </span>
+        </div>
         <div className="flex gap-1">
           <button 
             onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}
