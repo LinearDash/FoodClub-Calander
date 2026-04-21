@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Event, EventStatus, EventPriority } from "@foodclub/types";
 import { getStatusColour, formatDate } from "@foodclub/utils";
+import { X } from "lucide-react";
 import DateRangePicker from "@/components/DateRangePicker";
 import { createClient } from "@/utils/supabase/client";
 import { saveDocumentRecord, getEvents } from "@/app/(dashboard)/events/actions";
@@ -161,41 +162,51 @@ export default function EventModal({
         className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      <div className="bg-surface-container-lowest sm:rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 p-6 flex flex-col gap-6 h-[92vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-[2.5rem] animate-in slide-in-from-bottom duration-300">
+      <div className="bg-surface-container-lowest rounded-3xl shadow-[0_20px_40px_rgba(29,28,24,0.12)] w-full max-w-lg z-10 sm:p-8 p-5 flex flex-col sm:gap-6 gap-4 h-[94vh] sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden animate-in slide-in-from-bottom duration-300 relative">
+        {/* Mobile Indicator Handle */}
+        <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full mx-auto mb-2 sm:hidden flex-shrink-0" />
+        
+        {/* Top Close Button (Desktop & Mobile) */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface z-20"
+          aria-label="Close modal"
+        >
+          <X size={20} />
+        </button>
+
         {mode === "preview" ? (
           <div className="space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold uppercase ${getStatusColour(
-                      (event.status || "not_applied") as EventStatus,
-                    )}`}
-                  >
-                    {(event.status || "not_applied").replace("_", " ")}
-                  </span>
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full ${
-                      event.priority === "high"
-                        ? "bg-[#DC2626]"
-                        : event.priority === "medium"
-                          ? "border border-[#F97316]"
-                          : "bg-[#10B981]"
-                    }`}
-                  />
-                </div>
-                <h3 className="font-display text-3xl font-bold text-on-surface">
-                  {event.name || "Untitled event"}
-                </h3>
-                <p className="text-on-surface-variant mt-1">{event.location || "No location added"}</p>
+            <div className="pr-10">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span
+                  className={`px-2 py-1 rounded text-[10px] sm:text-xs font-semibold uppercase ${getStatusColour(
+                    (event.status || "not_applied") as EventStatus,
+                  )}`}
+                >
+                  {(event.status || "not_applied").replace("_", " ")}
+                </span>
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    event.priority === "high"
+                      ? "bg-[#DC2626]"
+                      : event.priority === "medium"
+                        ? "border border-[#F97316]"
+                        : "bg-[#10B981]"
+                  }`}
+                />
               </div>
-              <button
-                onClick={() => setMode("edit")}
-                className="bg-primary text-white px-4 py-2 rounded-xl font-medium hover:opacity-90 transition shadow-sm"
-              >
-                Edit
-              </button>
+              <h3 className="font-display text-2xl sm:text-3xl font-bold text-on-surface leading-tight">
+                {event.name || "Untitled event"}
+              </h3>
+              <p className="text-on-surface-variant mt-1 text-sm sm:text-base">{event.location || "No location added"}</p>
             </div>
+            <button
+              onClick={() => setMode("edit")}
+              className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition shadow-md w-full sm:w-auto"
+            >
+              Edit
+            </button>
 
             <div className="space-y-4">
               {renderMiniEventCalendar()}
@@ -273,14 +284,6 @@ export default function EventModal({
               )}
             </div>
 
-            <div className="flex justify-end border-t border-outline-variant/15 pt-4">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
-              >
-                Close
-              </button>
-            </div>
           </div>
         ) : (
           <>
@@ -304,52 +307,52 @@ export default function EventModal({
 
               {event.isTBA ? (
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                     Target Month
                   </label>
                   <input
                     type="month"
                     value={event.date ? event.date.substring(0, 7) : ""}
                     onChange={(e) => setEvent({ ...event, date: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                       Start Date
                     </label>
                     <input
                       type="date"
                       value={event.date || ""}
                       onChange={(e) => setEvent({ ...event, date: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                      className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                       End Date (Optional)
                     </label>
                     <input
                       type="date"
                       value={event.endDate || ""}
                       onChange={(e) => setEvent({ ...event, endDate: e.target.value })}
-                      className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                      className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                     Status
                   </label>
                   <select
                     value={event.status || "not_applied"}
                     onChange={(e) => setEvent({ ...event, status: e.target.value as EventStatus })}
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                   >
                     <option value="not_applied">Not Applied</option>
                     <option value="form_filled">Form Filled</option>
@@ -359,13 +362,13 @@ export default function EventModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                     Priority
                   </label>
                   <select
                     value={event.priority || "medium"}
                     onChange={(e) => setEvent({ ...event, priority: e.target.value as EventPriority })}
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                   >
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
@@ -375,44 +378,44 @@ export default function EventModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                   Location
                 </label>
                 <input
                   type="text"
                   value={event.location || ""}
                   onChange={(e) => setEvent({ ...event, location: e.target.value })}
-                  className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface shadow-sm"
+                  className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                   placeholder="e.g., Fremantle"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                     Contact Name
                   </label>
                   <input
                     type="text"
                     value={event.contactName || ""}
                     onChange={(e) => setEvent({ ...event, contactName: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface shadow-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                     placeholder="John Doe"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
                     Follow-up Date
                   </label>
                   <input
                     type="date"
                     value={event.followUpDate || ""}
                     onChange={(e) => setEvent({ ...event, followUpDate: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl bg-surface border border-outline-variant/30 text-on-surface shadow-sm"
+                    className="w-full px-4 py-3 rounded-xl bg-surface border border-outline-variant/30 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm transition-all"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold uppercase text-on-surface-variant mb-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2 ml-1">
                     Application Form Release
                   </label>
                   <div className="flex rounded-xl border border-outline-variant/30 overflow-hidden mb-3 w-fit">
@@ -614,29 +617,29 @@ export default function EventModal({
             </div>
 
             <div
-              className={`flex items-center gap-3 pt-4 border-t border-outline-variant/15 ${
+              className={`flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-outline-variant/15 ${
                 event.id ? "justify-between" : "justify-end"
               }`}
             >
               {event.id && (
                 <button
                   onClick={onDelete}
-                  className="px-4 py-2 font-medium text-red-500 hover:bg-red-50 transition rounded-xl"
+                  className="w-full sm:w-auto px-4 py-2.5 font-bold text-sm text-red-500 hover:bg-red-50 transition rounded-xl order-last sm:order-first"
                 >
                   Delete Event
                 </button>
               )}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 font-medium text-on-surface-variant hover:text-on-surface transition"
+                  className="w-full sm:w-auto px-6 py-2.5 font-bold text-sm text-on-surface-variant hover:text-on-surface transition rounded-xl bg-surface-container sm:bg-transparent"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={onSave}
                   disabled={isSaving}
-                  className={`bg-primary text-white px-6 py-2 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all ${
+                  className={`w-full sm:w-auto bg-primary text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.23)] hover:opacity-90 transition-all ${
                     isSaving ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 >
