@@ -24,7 +24,9 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchUser = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         // Fetch from profiles table where the real name lives
         const { data: profile } = await supabase
@@ -32,7 +34,11 @@ export default function Sidebar() {
           .select("full_name")
           .eq("id", user.id)
           .single();
-        const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+        const name =
+          profile?.full_name ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "User";
         setUserName(name);
         setInitials(getInitials(name));
       }
@@ -41,9 +47,11 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <aside className="w-64 bg-surface-container-low border-r border-outline-variant/15 flex flex-col hidden md:flex h-screen sticky top-0">
+    <aside className="w-64 bg-surface-container-low border-r border-outline-variant/15 flex flex-col md:flex h-screen sticky top-0">
       <div className="p-6">
-        <h1 className="font-display text-2xl font-bold text-primary">Food Club</h1>
+        <h1 className="font-display text-2xl font-bold text-primary">
+          Food Club
+        </h1>
       </div>
 
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
@@ -57,7 +65,10 @@ export default function Sidebar() {
                 : "hover:bg-surface-container text-on-surface"
             }`}
           >
-            <item.icon size={20} strokeWidth={pathname.startsWith(item.href) ? 2.5 : 2} />
+            <item.icon
+              size={20}
+              strokeWidth={pathname.startsWith(item.href) ? 2.5 : 2}
+            />
             {item.label}
           </Link>
         ))}
@@ -69,7 +80,9 @@ export default function Sidebar() {
             {initials || ".."}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-on-surface truncate">{userName || "Loading..."}</p>
+            <p className="text-sm font-semibold text-on-surface truncate">
+              {userName || "Loading..."}
+            </p>
             <button
               onClick={async () => await signOut()}
               className="text-xs text-on-surface-variant hover:text-primary transition-colors text-left font-medium"
