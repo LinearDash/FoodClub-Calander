@@ -47,7 +47,7 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <aside className="w-64 bg-surface-container-low border-r border-outline-variant/15 flex flex-col md:flex h-screen sticky top-0">
+    <aside className="w-64 bg-surface-container-low border-r border-outline-variant/15 hidden md:flex flex-col h-screen sticky top-0">
       <div className="p-6">
         <h1 className="font-display text-2xl font-bold text-primary">
           Food Club

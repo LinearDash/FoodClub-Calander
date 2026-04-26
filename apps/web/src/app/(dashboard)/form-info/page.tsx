@@ -20,7 +20,7 @@ function CopyableField({ label, value, multiline = false }: { label: string, val
       )}
       <button 
         onClick={handleCopy}
-        className={`absolute top-3 right-3 p-1.5 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-surface-container-high text-on-surface-variant opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-white'}`}
+        className={`absolute top-3 right-3 p-1.5 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-surface-container-high text-on-surface-variant md:opacity-0 md:group-hover:opacity-100 opacity-100 hover:bg-primary hover:text-white'}`}
         aria-label="Copy"
         title="Copy to clipboard"
       >
@@ -70,7 +70,7 @@ Notes: Kids friendly menu available. GF - Gluten Free, D - Contains Dairy, E - C
     <div className="space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-4xl font-bold text-on-surface">Form DetailsCheat Sheet</h1>
+          <h1 className="font-display text-3xl md:text-4xl font-bold text-on-surface">Form Details Cheat Sheet</h1>
           <p className="text-on-surface-variant mt-2 max-w-2xl">A quick reference for standardized business details, truck dimensions, and menu information. Click any block to instantly copy it to your clipboard when filling out EOI forms.</p>
         </div>
       </div>
